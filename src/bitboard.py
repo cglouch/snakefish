@@ -1,3 +1,6 @@
+import numpy as np
+from square import Square
+
 """
 This file contains a variety of functions for manipulating bitboards (represented using uint64 in numpy)
 
@@ -14,4 +17,38 @@ Note that we use a little-endian rank-file mapping, i.e.:
 
 where least to most significant bit ranges from 0 to 63.
 """
+
+EMPTY_BB = np.uint64(0)
+
+# Clever bit manipulation wizardry to count trailing zeros
+# See https://www.chessprogramming.wikispaces.com/BitScan#Bitscan forward-De Bruijn Multiplication-With Isolated LS1B
+# NOTE: only works if bb is non-zero
+lookup = np.array(
+        [ 0,  1, 48,  2, 57, 49, 28,  3,
+         61, 58, 50, 42, 38, 29, 17,  4,
+         62, 55, 59, 36, 53, 51, 43, 22,
+         45, 39, 33, 30, 24, 18, 12,  5,
+         63, 47, 56, 27, 60, 41, 37, 16,
+         54, 35, 52, 21, 44, 32, 23, 11,
+         46, 26, 40, 15, 34, 20, 31, 10,
+         25, 14, 19,  9, 13,  8,  7,  6],
+        dtype=np.uint8)
+debruijn = np.uint64(0x03f79d71b4cb0a89)
+def lsb_bitscan(bb):
+    return lookup[((bb & -bb) * debruijn) >> 58]
+
+def from_square(sq):
+    return np.uint64(1) << sq.index
+
+# Generator that returns corresponding square for each bit set in the bitboard
+def occupied_squares(bb):
+    while bb != EMPTY_BB:
+        lsb_square = Square(lsb_bitscan(bb))
+        yield lsb_square
+        bb ^= from_square(lsb_square)
+
+
+
+
+
 

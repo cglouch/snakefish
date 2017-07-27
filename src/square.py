@@ -4,7 +4,7 @@ from constants import Rank, File
 
 class Square(object):
     def __init__(self, index):
-        self.sq = np.uint8(index)
+        self.index = np.uint8(index)
 
     @classmethod
     def fromPosition(cls, r, f):
