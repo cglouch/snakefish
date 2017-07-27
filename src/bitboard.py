@@ -40,12 +40,28 @@ def lsb_bitscan(bb):
 def from_square(sq):
     return np.uint64(1) << sq.index
 
+def clear_square(sq):
+    pass
+
+def set_square(sq):
+    pass
+
 # Generator that returns corresponding square for each bit set in the bitboard
 def occupied_squares(bb):
     while bb != EMPTY_BB:
         lsb_square = Square(lsb_bitscan(bb))
         yield lsb_square
         bb ^= from_square(lsb_square)
+
+# Counts number of bits set using Kernighan's way
+# (may want to replace this with faster method)
+def pop_count(bb):
+    count = np.uint8(0)
+    while bb != EMPTY_BB:
+        count += np.uint8(1)
+        bb &= bb - np.uint64(1)
+    return count
+
 
 
 
