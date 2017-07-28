@@ -37,7 +37,7 @@ lookup = np.array(
         dtype=np.uint8)
 debruijn = np.uint64(0x03f79d71b4cb0a89)
 def lsb_bitscan(bb):
-    return lookup[((bb & -bb) * debruijn) >> 58]
+    return lookup[((bb & -bb) * debruijn) >> np.uint64(58)]
 
 # Generator that returns corresponding square for each bit set in the bitboard
 def occupied_squares(bb):
@@ -66,6 +66,6 @@ def to_str(bb):
             if is_set(bb, sq):
                 bb_str.append('1')
             else:
-                bb_str.append('0')
+                bb_str.append('.')
         bb_str.append('\n')
     return ''.join(bb_str)
