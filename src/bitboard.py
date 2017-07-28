@@ -54,6 +54,9 @@ def pop_count(bb):
         bb &= bb - np.uint64(1)
     return count
 
+def is_set(bb, sq):
+    return sq.to_bitboard() & bb != EMPTY_BB
+
 
 
 

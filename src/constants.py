@@ -19,15 +19,29 @@ class Piece(IntEnum):
     QUEEN = 4
     KING = 5
 
+    def get_char(self):
+        if self == Piece.PAWN:
+            return 'p'
+        elif self == Piece.KNIGHT:
+            return 'n'
+        elif self == Piece.BISHOP:
+            return 'b'
+        elif self == Piece.ROOK:
+            return 'r'
+        elif self == Piece.QUEEN:
+            return 'q'
+        elif self == Piece.KING:
+            return 'k'
+
 class Rank(IntEnum):
-    One = 0
-    Two = 1
-    Three = 2
-    Four = 3
-    Five = 4
-    Six = 5
-    Seven = 6
-    Eight = 7
+    ONE = 0
+    TWO = 1
+    THREE = 2
+    FOUR = 3
+    FIVE = 4
+    SIX = 5
+    SEVEN = 6
+    EIGHT = 7
 
 class File(IntEnum):
     A = 0

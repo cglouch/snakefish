@@ -12,7 +12,7 @@ class Square(object):
         return "%s%d" % (chr(ord('A')+f), 1+r)
 
     @classmethod
-    def fromPosition(cls, r, f):
+    def from_position(cls, r, f):
         return cls((r.value<<3) | f.value) # 8*rank + file
 
     def to_bitboard(sq):
