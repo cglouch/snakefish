@@ -15,7 +15,7 @@ class Square(object):
     def from_position(cls, r, f):
         return cls((r.value<<3) | f.value) # 8*rank + file
 
-    def to_bitboard(sq):
+    def to_bitboard(self):
         return np.uint64(1) << self.index
 
 

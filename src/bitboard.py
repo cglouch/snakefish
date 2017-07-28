@@ -1,5 +1,6 @@
 import numpy as np
 from square import Square
+from constants import Rank, File
 
 """
 This file contains a variety of functions for manipulating bitboards (represented using uint64 in numpy)
@@ -57,9 +58,14 @@ def pop_count(bb):
 def is_set(bb, sq):
     return sq.to_bitboard() & bb != EMPTY_BB
 
-
-
-
-
-
-
+def to_str(bb):
+    bb_str = []
+    for r in reversed(Rank):
+        for f in File:
+            sq = Square.from_position(r, f)
+            if is_set(bb, sq):
+                bb_str.append('1')
+            else:
+                bb_str.append('0')
+        bb_str.append('\n')
+    return ''.join(bb_str)
