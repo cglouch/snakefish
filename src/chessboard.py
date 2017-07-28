@@ -8,3 +8,12 @@ class ChessBoard(object):
         self.combined_side = np.zeros(2, dtype=np.uint64) # Combined bitboard for all pieces of given side
         self.combined_all = np.uint64(0) # Combined bitboard for all pieces on the board
         self.to_move = Color.WHITE
+
+    def get_piece(self, sq):
+        pass
+
+    def apply_move(self, move):
+        pass
+
+    def is_legal(self, move):
+        pass

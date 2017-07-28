@@ -11,7 +11,7 @@ class Move(object):
 
     def __str__(self):
         if self.promo:
-            return "%s -> %s = %s" % (str(self.src), str(self.dest), str(self.promo))
+            return "%s -> %s = %s" % (str(self.src), str(self.dest), self.promo.name)
         else:
             return "%s -> %s" % (str(self.src), str(self.dest))
 

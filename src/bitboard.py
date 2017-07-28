@@ -18,6 +18,7 @@ Note that we use a little-endian rank-file mapping, i.e.:
 where least to most significant bit ranges from 0 to 63.
 """
 
+# May want to move this to tables.py
 EMPTY_BB = np.uint64(0)
 
 # Clever bit manipulation wizardry to count trailing zeros
@@ -37,21 +38,12 @@ debruijn = np.uint64(0x03f79d71b4cb0a89)
 def lsb_bitscan(bb):
     return lookup[((bb & -bb) * debruijn) >> 58]
 
-def from_square(sq):
-    return np.uint64(1) << sq.index
-
-def clear_square(sq):
-    pass
-
-def set_square(sq):
-    pass
-
 # Generator that returns corresponding square for each bit set in the bitboard
 def occupied_squares(bb):
     while bb != EMPTY_BB:
         lsb_square = Square(lsb_bitscan(bb))
         yield lsb_square
-        bb ^= from_square(lsb_square)
+        bb ^= lsb_square.to_bitboard()
 
 # Counts number of bits set using Kernighan's way
 # (may want to replace this with faster method)
