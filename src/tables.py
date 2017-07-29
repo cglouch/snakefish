@@ -1,14 +1,16 @@
 import numpy as np
 
+import bitboard
 from square import Square
 from constants import Rank, File, Color
 
 """
-This file contains various pre-computed bitboards for move generation and general use
+This file contains various pre-computed bitboards and bitboard tables for move generation and general use
 """
+EMPTY_BB = np.uint64(0)
 
 RANKS = np.array(
-            [np.uint64(0x0000000000000011) << np.uint8(8*i) for i in range(8)],
+            [np.uint64(0x00000000000000FF) << np.uint8(8*i) for i in range(8)],
             dtype=np.uint64)
 FILES = np.array(
             [np.uint64(0x0101010101010101) << np.uint8(i) for i in range(8)],
@@ -70,19 +72,110 @@ KNIGHT_MOVES = np.fromiter(
         dtype=np.uint64,
         count=64)
 
-# PAWN
+# PAWN QUIETS
+# NOTE: MUST BE CHECKED LATER FOR BLOCKERS IN EVENT OF DOUBLE ADVANCE
 
 def compute_pawn_quiet_moves(color, i):
-    pass
+    shift_forward = lambda bb, color, i:  \
+        bb << np.uint(8*i) if color == Color.WHITE else bb >> np.uint8(8*i)
+    starting_rank = RANKS[Rank.TWO] if color == Color.WHITE else RANKS[Rank.SEVEN]
 
-def compute_pawn_attack_moves(color, i):
-    pass
+    sq = Square(i)
+    bb = sq.to_bitboard()
 
-PAWN_MOVES = np.fromiter(
-        (compute_pawn_quiet_moves(i) | compute_pawn_attack_moves(i) 
+    s1 = shift_forward(bb, color, 1)
+    s2 = shift_forward((bb & starting_rank), color, 2)
+
+    return s1 | s2
+
+PAWN_QUIETS = np.fromiter(
+        (compute_pawn_quiet_moves(color, i)
             for color in Color 
             for i in range(64)),
         dtype=np.uint64,
         count=2*64)
-PAWN_MOVES.shape =  (2,64)
+PAWN_QUIETS.shape = (2,64)
 
+# PAWN ATTACKS
+
+def compute_pawn_attack_moves(color, i):
+    sq = Square(i)
+    bb = sq.to_bitboard()
+
+    if color == Color.WHITE:
+        s1 = (bb & ~FILES[File.A]) << np.uint8(7)
+        s2 = (bb & ~FILES[File.H]) << np.uint8(9)
+    else:
+        s1 = (bb & ~FILES[File.A]) >> np.uint8(9)
+        s2 = (bb & ~FILES[File.H]) >> np.uint8(7)
+
+    return s1 | s2
+
+PAWN_ATTACKS = np.fromiter(
+        (compute_pawn_attack_moves(color, i)
+            for color in Color 
+            for i in range(64)),
+        dtype=np.uint64,
+        count=2*64)
+PAWN_ATTACKS.shape = (2,64)
+
+# FIRST RANK MOVES
+# Array is indexed by file of square and occupancy of line
+# Rows of a given entry are duplicated and contain possible sliding piece movements for given square, occupancy of first rank
+
+def compute_first_rank_moves(i, occ):
+    # i is square index from 0 to 8
+    # occ is 8-bit number that represents occupancy of the rank 
+    # Returns bitboard with copies of resulting moveset in each row
+
+    occ = np.uint64(occ)
+
+    # This looks backwards because of the board representation!
+    left_mask = lambda x: x - np.uint64(1)
+    right_mask = lambda x: ~(x | (x - np.uint64(1)))
+
+    # Example (only first row shown):
+    # ...1.... = x 
+    # ....1111 = right_mask(x)
+    # 111..... = left_mask(x)
+
+    x = Square(i).to_bitboard()
+    left_occ = occ & left_mask(x)
+    right_occ = occ & right_mask(x)
+
+    left_blocker = Square(0).to_bitboard()
+    right_blocker = Square(7).to_bitboard()
+    if left_occ != EMPTY_BB:
+        left_blocker = Square(bitboard.lsb_bitscan(left_occ)).to_bitboard()
+    if right_occ != EMPTY_BB:
+        right_blocker = Square(bitboard.msb_bitscan(right_occ)).to_bitboard()
+
+    # Example (only first row shown)
+    # .1...... = left_blocker
+    # .....1.. = right_blocker
+
+    # .1111111 = left_blocker | right_mask(left_blocker)
+    # 111111.. = right_blocker | left_mask(right_blocker)
+
+    # .11111.. = result
+
+    result = (left_blocker | right_mask(left_blocker)) & (right_blocker | left_mask(right_blocker))
+    result &= RANKS[Rank.ONE] # Isolate first rank
+
+    # At this point first rank of result holds moveset for given square and occupancy
+    # We finish off by copying this pattern to the other ranks
+
+    result |= result << np.uint8(8)
+    result |= result << np.uint8(16)
+    result |= result << np.uint8(32)
+
+    return result
+
+
+FIRST_RANK_MOVES = np.fromiter(
+        (compute_first_rank_moves(i, occ)
+            for i in range(8) # 8 squares in a rank 
+            for occ in range(256)), # 2^8 = 256 possible occupancies of a rank
+        dtype=np.uint64,
+        count=8*256)
+FIRST_RANK_MOVES.shape = (8,256)
