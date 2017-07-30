@@ -93,28 +93,43 @@ def get_rook_moves_bb(sq, board):
 def get_queen_moves_bb(sq, board):
     return get_rook_moves_bb(sq, board) | get_bishop_moves_bb(sq, board)
 
-moveset_functions = [0] * 6
-moveset_functions[Piece.PAWN] = get_pawn_moves_bb
-moveset_functions[Piece.KNIGHT] = get_knight_moves_bb
-moveset_functions[Piece.BISHOP] = get_bishop_moves_bb
-moveset_functions[Piece.ROOK] = get_rook_moves_bb
-moveset_functions[Piece.QUEEN] = get_queen_moves_bb
-moveset_functions[Piece.KING] = get_king_moves_bb
-
 
 # Move generators
 
+def gen_piece_moves(src, board, piece):
+    if piece == Piece.PAWN:
+        moveset = get_pawn_moves_bb(src, board)
+        # Handle promotion moves
+        white_promote = src.to_bitboard() & tables.RANKS[Rank.SEVEN] != tables.EMPTY_BB
+        black_promote = src.to_bitboard() & tables.RANKS[Rank.TWO] != tables.EMPTY_BB
+        if (board.color == Color.WHITE and white_promote) or (board.color == Color.BLACK and black_promote):
+            for dest in bitboard.occupied_squares(moveset):
+                yield Move(src, dest, Piece.QUEEN)
+                yield Move(src, dest, Piece.ROOK)
+                yield Move(src, dest, Piece.KNIGHT)
+                yield Move(src, dest, Piece.BISHOP)
+            return
+    elif piece == Piece.KNIGHT:
+        moveset = get_knight_moves_bb(src, board)
+    elif piece == Piece.BISHOP:
+        moveset = get_bishop_moves_bb(src, board)
+    elif piece == Piece.ROOK:
+        moveset = get_rook_moves_bb(src, board)
+    elif piece == Piece.QUEEN:
+        moveset = get_queen_moves_bb(src, board)
+    elif piece == Piece.KING:
+        moveset = get_king_moves_bb(src, board)
+    else:
+        # This should never happen
+        raise RuntimeError("Invalid piece: %s" % str(piece))
+
+    # Handle non-promotion moves
+    for dest in bitboard.occupied_squares(moveset):
+        yield Move(src, dest)
+
+
 def gen_moves(board):
     for piece in Piece:
-        piece_bb = board.pieces[board.color][piece]
-        moveset_function = moveset_functions[piece]
-
+        piece_bb = board.get_piece_bb(piece)
         for src in bitboard.occupied_squares(piece_bb):
-            moveset = moveset_function(src, board)
-            for dest in bitboard.occupied_squares(moveset):
-                yield Move(src, dest)
-
-a = ChessBoard()
-a.init_game()
-for m in gen_moves(a):
-    print(m)
+            yield from gen_piece_moves(src, board, piece)
