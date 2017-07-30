@@ -51,10 +51,15 @@ def get_file_moves_bb(i, occ):
     i is index of square
     occ is the combined occupancy of the board
     """
-    f = i % np.uint8(8)
+    f = i % np.uint8(7)
+    # Shift to A file
     occ = tables.FILES[File.A] & (occ >> f)
+    # Map occupancy and index to first rank
     occ = (tables.A1H8_DIAG * occ) >> np.uint8(56)
-    occ = tables.A1H8_DIAG * tables.FIRST_RANK_MOVES[7-i//8][occ]
+    first_rank_index = (i ^ np.uint8(56)) >> np.uint8(3)
+    # Lookup moveset and map back to H file
+    occ = tables.A1H8_DIAG * tables.FIRST_RANK_MOVES[first_rank_index][occ]
+    # Isolate H file and shift back to original file
     return (tables.FILES[File.H] & occ) >> (f ^ np.uint8(7))
 
 
