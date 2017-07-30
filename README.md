@@ -109,7 +109,7 @@ class Move(object):
 
 Great! So how do bitboards fit into this? The key insight is that we can use a bitboard to encode the places that a piece can move from a given square. I'll call this a *moveset*. A moveset bitboard will have 1's on squares that the piece can move to, and 0's everywhere else. 
 
-#### Example - non-sliding piece
+#### Non-sliding pieces
 
 For instance, let's say we want to calculate the moveset of a white king on B2. The white king bitboard would be:
 
@@ -119,15 +119,16 @@ wk = 0b0000000000000000000000000000000000000000000000000000001000000000
 
 Visually this corresponds to:
 ```
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 1 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. 1 . . . . . .
+. . . . . . . .
 ```
+(For readability, we'll use '.' instead of '0' when representing bitboards.)
 
 A king can move one square in any direction, which we can represent by shifting the bit pattern an appropriate amount. For instance, the square to the left of the king is given by `wk >> 1` (remember that the bit positions increase in significance as we move on the board from left to right, bottom to top; so to get the left of a square we need to shift the bit pattern right). The square above and to the left is `wk << 7`, the square above is `wk << 8`, etc. There's a catch, however, which is that if the king was on say A2, then there is no square to the left it can move to, but our bitshifting approach would mistakenly yield the bitboard for H1. To fix this, we can use a mask to zero out files A and H whenever we're calculating squares that lie to the left or right, respectively. Note that this clipping effect only applies to the files; we don't need to worry about the ranks at the top or bottom because shifting too far up or down will correctly zero out the bit pattern on its own. To summarize:
 
@@ -168,9 +169,9 @@ This example showcases the power of bitboards. With a naive square-centric appro
 
 With a couple tweaks, we can use the method described above to calculate the movesets for the pawns and the knights as well. Kings, pawns, and knights are all similar in that they're *non-sliding* pieces. From a computational perspective, these are nice because their movement really only depends on the source square and whether or not the destination square is occupied by a same-colored piece. This means that we can compute their movesets easily with a lookup based on the piece's square followed by a simple bitwise AND.
 
-#### Example - sliding pieces
+#### Sliding pieces
 
-Sliding pieces (bishop, rook, and queen) pose a greater challenge. This is because the occupancy of the board affects the movement of the sliding piece, as shown in the image below:
+Sliding pieces (bishop, rook, and queen) pose a greater challenge. This is because the occupancy of the board affects the movement of the piece, as shown in the image below:
 
 ![Sliding](http://i.imgur.com/4aTSjVR.png)
 
@@ -182,7 +183,76 @@ Two key observations:
 * We can use a combination of integer multiplication and bit shifting to map any pattern along a rank, file, diagonal, or anti-diagonal to the same pattern along the first rank, and vice versa. This process is described [here](http://chessprogramming.wikispaces.com/Flipping+Mirroring+and+Rotating#Rank,%20File%20and%20Diagonal). For instance, here's how we can rotate the A file to the first rank:
 ![Rotation](https://i.imgur.com/T9CPHGj.png)
 
-These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. 
+These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. The main idea underlying Kindergarten bitboards is that while it's impossible to store sliding piece movements for the whole board, it is possible if we limit ourselves to the first rank. To that end, we pre-compute a table with dimensions 8 x 2^8: 8 for the squares along the first rank, and 2^8 for the possible first rank occupancies. Each entry of the table stores the horizontal sliding piece moveset of a piece on the given square with the given first rank occupancy. Note that this can easily fit into memory, requiring only 8 * 2^8 * 8 bytes ≈ 16 KB. Now any time we need the moveset for a square along some line, we can use the integer multiplication process described above to transform this problem into its first rank equivalent. We then look up the pre-computed moveset in the table for the corresponding square and occupancy, and finally we map this moveset back to the original line we were interested in. The name Kindergarten bitboards comes from the integer multiplication process that one learns in school and that we're using here to map lines back and forth to the first rank. (Chess programmers must be particularly precocious though, because I didn't learn multiplication until the 3rd grade!)
+
+Kindergarten bitboards are perhaps best understood through an example, so let's see how they work to calculate the vertical movements of the rook shown in this image:
+
+![rook](https://i.imgur.com/o4jrK9O.png?1)
+
+The combined occupancy bitboard is:
+
+```
+. . . . . . . .
+1 . . . . 1 . .
+. . . . . . . . 
+1 . . . . . 1 .
+. . . . . 1 . .
+. . . 1 . . . .
+1 . . . . . . .
+1 . . . . . . .
+```
+
+Since we're only interested in vertical movement, we'll mask the A file, so the occupancy becomes:
+
+```
+. . . . . . . .
+1 . . . . . . .
+. . . . . . . . 
+1 . . . . . . .
+. . . . . . . .
+. . . . . . . .
+1 . . . . . . .
+1 . . . . . . .
+```
+
+We use Kindergarten multiplication (in this case, multiplication by the main diagonal followed by a right shift of 56) to map this occupancy pattern to the first rank:
+
+```
+. . . . . . . .      . . . . . . . .
+1 . . . . . . .      . . . . . . . .
+. . . . . . . .      . . . . . . . .
+1 . . . . . . .  =>  . . . . . . . .
+. . . . . . . .      . . . . . . . .
+. . . . . . . .      . . . . . . . .
+1 . . . . . . .      . . . . . . . .
+1 . . . . . . .      . 1 . 1 . . 1 1
+```
+
+And now we're all set to perform the lookup into the pre-computed table for the first rank. The square index is 4, since that's where the rook got mapped to. The first rank occupancy index that we just calculated is ``0b11001010 = 202``. The corresponding table entry is:
+
+```
+FIRST_RANK_MOVES[4][202] = 0b01111110
+```
+
+Finally, we map this pattern back to the A file (again via Kindergarten multiplication):
+
+```
+. . . . . . . .      . . . . . . . .
+. . . . . . . .      1 . . . . . . .
+. . . . . . . .      1 . . . . . . .
+. . . . . . . .  =>  1 . . . . . . .
+. . . . . . . .      1 . . . . . . .
+. . . . . . . .      1 . . . . . . .
+. . . . . . . .      1 . . . . . . .
+. 1 1 1 1 1 1 .      . . . . . . . .
+```
+
+Voila! The vertical moveset for the rook, as desired. Here's the code for calculating vertical movesets in general:
+
+INSERT CODE HERE
+
+The functions for diagonal, anti-diagonal, and horizontal movesets are similar, so we'll omit them from this description.
+
 
 #### Putting it all together
 
