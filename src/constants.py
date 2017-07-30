@@ -19,7 +19,7 @@ class Piece(IntEnum):
     QUEEN = 4
     KING = 5
 
-    def get_char(self):
+    def to_char(self):
         if self == Piece.PAWN:
             return 'p'
         elif self == Piece.KNIGHT:

@@ -159,60 +159,36 @@ PAWN_ATTACKS.shape = (2,64)
 def compute_first_rank_moves(i, occ):
     # i is square index from 0 to 8
     # occ is 8-bit number that represents occupancy of the rank 
-    # Returns first rank moves (as uint64 bitboard)
+    # Returns first rank moves (as uint8)
 
-    occ = np.uint64(occ)
+    left_ray = lambda x: x | (x - np.uint8(1))
+    right_ray = lambda x: x | ~(x - np.uint8(1))
 
-    # This looks backwards because of the board representation!
-    left_mask = lambda x: x - np.uint64(1)
-    right_mask = lambda x: ~(x | (x - np.uint64(1)))
+    x = np.uint8(1) << np.uint8(i)
+    occ = np.uint8(occ)
 
-    # Example (only first row shown):
-    # ...1.... = x 
-    # ....1111 = right_mask(x)
-    # 111..... = left_mask(x)
+    left_attacks = left_ray(x)
+    left_blockers = left_attacks & occ
+    if left_blockers != EMPTY_BB:
+        leftmost = np.uint8(1) << bitboard.msb_bitscan(np.uint64(left_blockers))
+        left_garbage = left_ray(leftmost)
+        left_attacks ^= left_garbage
 
-    x = Square(i).to_bitboard()
-    left_occ = occ & left_mask(x)
-    right_occ = occ & right_mask(x)
+    right_attacks = right_ray(x)
+    right_blockers = right_attacks & occ
+    if right_blockers != EMPTY_BB:
+        rightmost = np.uint8(1) << bitboard.lsb_bitscan(np.uint64(right_blockers))
+        right_garbage = right_ray(rightmost)
+        right_attacks ^= right_garbage
 
-    left_blocker = Square(0).to_bitboard()
-    right_blocker = Square(7).to_bitboard()
-    if left_occ != EMPTY_BB:
-        left_blocker = Square(bitboard.lsb_bitscan(left_occ)).to_bitboard()
-    if right_occ != EMPTY_BB:
-        right_blocker = Square(bitboard.msb_bitscan(right_occ)).to_bitboard()
+    return left_attacks ^ right_attacks
 
-    # Example (only first row shown)
-    # .1...... = left_blocker
-    # .....1.. = right_blocker
-
-    # .1111111 = left_blocker | right_mask(left_blocker)
-    # 111111.. = right_blocker | left_mask(right_blocker)
-
-    # .11111.. = result
-
-    result = (left_blocker | right_mask(left_blocker)) & (right_blocker | left_mask(right_blocker))
-    result &= RANKS[Rank.ONE] # Isolate first rank
-
-    #TODO: maybe change this to 8-bit version since we don't need the row duplication
-
-    """
-    # At this point first rank of result holds moveset for given square and occupancy
-    # We finish off by copying this pattern to the other ranks
-
-    result |= result << np.uint8(8)
-    result |= result << np.uint8(16)
-    result |= result << np.uint8(32)
-    """
-
-    return result
 
 
 FIRST_RANK_MOVES = np.fromiter(
         (compute_first_rank_moves(i, occ)
             for i in range(8) # 8 squares in a rank 
             for occ in range(256)), # 2^8 = 256 possible occupancies of a rank
-        dtype=np.uint64,
+        dtype=np.uint8,
         count=8*256)
 FIRST_RANK_MOVES.shape = (8,256)

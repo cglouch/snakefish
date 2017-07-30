@@ -4,6 +4,8 @@ import tables
 import bitboard
 from constants import Rank, File, Color, Piece
 from move import Move
+from square import Square
+from chessboard import ChessBoard
 
 
 # Some helper functions for sliding pieces
@@ -49,10 +51,10 @@ def get_file_moves_bb(i, occ):
     i is index of square
     occ is the combined occupancy of the board
     """
-    f = i & np.uint8(7)
+    f = i % np.uint8(8)
     occ = tables.FILES[File.A] & (occ >> f)
     occ = (tables.A1H8_DIAG * occ) >> np.uint8(56)
-    occ = tables.A1H8_DIAG * tables.FIRST_RANK_MOVES[(i^np.uint8(56)) >> 3][occ]
+    occ = tables.A1H8_DIAG * tables.FIRST_RANK_MOVES[7-i//8][occ]
     return (tables.FILES[File.H] & occ) >> (f ^ np.uint8(7))
 
 
@@ -62,26 +64,26 @@ def get_king_moves_bb(sq, board):
     return tables.KING_MOVES[sq.index] & ~board.combined_color[board.color]
 
 def get_knight_moves_bb(sq, board):
-    return tables.KNIGHT_MOVES_BB[sq.index] & ~board.combined_color[board.color]
+    return tables.KNIGHT_MOVES[sq.index] & ~board.combined_color[board.color]
 
 def get_pawn_moves_bb(sq, board):
     attacks = tables.PAWN_ATTACKS[board.color][sq.index] & board.combined_color[~board.color]
     quiets = tables.EMPTY_BB
     white_free = Square(sq.index + np.uint8(8)).to_bitboard() & board.combined_all == tables.EMPTY_BB 
     black_free = Square(sq.index - np.uint8(8)).to_bitboard() & board.combined_all == tables.EMPTY_BB 
-    if (board.color == color.WHITE and white_free) or (board.color == color.BLACK and black_free):
+    if (board.color == Color.WHITE and white_free) or (board.color == Color.BLACK and black_free):
         quiets = tables.PAWN_QUIETS[board.color][sq.index] & ~board.combined_all
     return attacks | quiets
 
 def get_bishop_moves_bb(sq, board):
-    return (get_diag_moves_bb(sq.index, board.combined_all) 
+    return ((get_diag_moves_bb(sq.index, board.combined_all) 
         ^ get_antidiag_moves_bb(sq.index, board.combined_all))
-        & ~board.combined_color
+        & ~board.combined_color[board.color])
 
 def get_rook_moves_bb(sq, board):
-    return (get_rank_moves_bb(sq.index, board.combined_all)
+    return ((get_rank_moves_bb(sq.index, board.combined_all)
         ^ get_file_moves_bb(sq.index, board.combined_all))
-        & ~board.combined_color
+        & ~board.combined_color[board.color])
 
 def get_queen_moves_bb(sq, board):
     return get_rook_moves_bb(sq, board) | get_bishop_moves_bb(sq, board)
@@ -107,4 +109,7 @@ def gen_moves(board):
             for dest in bitboard.occupied_squares(moveset):
                 yield Move(src, dest)
 
-
+a = ChessBoard()
+a.init_game()
+for m in gen_moves(a):
+    print(m)
