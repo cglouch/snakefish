@@ -251,7 +251,7 @@ Voila! The vertical moveset for the rook, as desired. Here's the code for calcul
 
 INSERT CODE HERE
 
-The functions for diagonal, anti-diagonal, and horizontal movesets are similar, so we'll omit them from this description.
+The functions for diagonal, anti-diagonal, and horizontal movesets are similar, so we'll omit them from this description. Combining these functions appropriately gives us the movesets for rooks, bishops, and queens.
 
 
 #### Putting it all together
