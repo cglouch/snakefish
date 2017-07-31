@@ -28,7 +28,7 @@ def eval_pieces(board):
         + Score.QUEEN.value * bitboard.pop_count(board.get_piece_bb(Piece.QUEEN)))
 
 def eval_center(board):
-    return Score.CENTER.value * bitboard.pop_count(board.combined_color[board.color] & tables.center)
+    return Score.CENTER.value * bitboard.pop_count(board.combined_color[board.color] & tables.CENTER)
 
 def eval_moves(board):
     num = len(list(movegen.gen_legal_moves(board)))
