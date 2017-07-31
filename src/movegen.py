@@ -149,27 +149,27 @@ def leaves_in_check(board, move):
     """
     board = board.apply_move(move)
     board.color = ~board.color
-    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(piece.KING)))
+    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(Piece.KING)))
 
     opp_color = ~board.color
-    opp_pawns = board.get_piece_bb(piece.PAWN, color=opp_color)
+    opp_pawns = board.get_piece_bb(Piece.PAWN, color=opp_color)
     if (tables.PAWN_ATTACKS[board.color][my_king_sq.index] & opp_pawns) != tables.EMPTY_BB: 
         return True
 
-    opp_knights = board.get_piece_bb(piece.KNIGHT, color=opp_color)
+    opp_knights = board.get_piece_bb(Piece.KNIGHT, color=opp_color)
     if (get_knight_moves_bb(my_king_sq, board) & opp_knights) != tables.EMPTY_BB:
         return True
 
-    opp_king = board.get_piece_bb(piece.KING, color=opp_color)
+    opp_king = board.get_piece_bb(Piece.KING, color=opp_color)
     if (get_king_moves_bb(my_king_sq, board) & opp_king) != tables.EMPTY_BB:
         return True
 
-    opp_bishops = board.get_piece_bb(piece.BISHOP, color=opp_color)
-    opp_queens = board.get_piece_bb(piece.QUEEN, color=opp_color)
+    opp_bishops = board.get_piece_bb(Piece.BISHOP, color=opp_color)
+    opp_queens = board.get_piece_bb(Piece.QUEEN, color=opp_color)
     if (get_bishop_moves_bb(my_king_sq, board) & (opp_bishops | opp_queens)) != tables.EMPTY_BB:
         return True
 
-    opp_rooks = board.get_piece_bb(piece.ROOK, color=opp_color)
+    opp_rooks = board.get_piece_bb(Piece.ROOK, color=opp_color)
     if (get_rook_moves_bb(my_king_sq, board) & (opp_rooks | opp_queens)) != tables.EMPTY_BB:
         return True
 
