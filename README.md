@@ -161,8 +161,7 @@ At this point we notice that with the exception of the last line, this computati
 def get_king_moves_bb(src, board):
     # src is Square where king is
     # board is the current ChessBoard
-    return tables.KING_MOVES[src.index] & ~board.combined_color[board.color] #TODO: make this right part a function
-    #TODO maybe make an array of these functions if they have the same signature, then define gen_moves_one_piece
+    return tables.KING_MOVES[src.index] & ~board.combined_color[board.color]
 ```
 
 This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, these checks can be performed simultaneously in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we do need to iterate through the squares set in the resulting bitboard, but it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
@@ -183,7 +182,7 @@ Two key observations:
 * We can use a combination of integer multiplication and bit shifting to map any pattern along a rank, file, diagonal, or anti-diagonal to the same pattern along the first rank, and vice versa. This process is described [here](http://chessprogramming.wikispaces.com/Flipping+Mirroring+and+Rotating#Rank,%20File%20and%20Diagonal). For instance, here's how we can rotate the A file to the first rank:
 ![Rotation](https://i.imgur.com/T9CPHGj.png)
 
-These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. The main idea underlying Kindergarten bitboards is that while it's impossible to store sliding piece movements for the whole board, it is possible if we limit ourselves to the first rank. To that end, we pre-compute a table with dimensions 8 x 2^8: 8 for the squares along the first rank, and 2^8 for the possible first rank occupancies. Each entry of the table stores the horizontal sliding piece moveset of a piece on the given square with the given first rank occupancy. Note that this can easily fit into memory, requiring only 8 * 2^8 * 8 bytes ≈ 16 KB. Now any time we need the moveset for a square along some line, we can use the integer multiplication process described above to transform this problem into its first rank equivalent. We then look up the pre-computed moveset in the table for the corresponding square and occupancy, and finally we map this moveset back to the original line we were interested in. The name Kindergarten bitboards comes from the integer multiplication process that one learns in school and that we're using here to map lines back and forth to the first rank. (Chess programmers must be particularly precocious though, because I didn't learn multiplication until the 3rd grade!)
+These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. The main idea underlying Kindergarten bitboards is that while it's impossible to store sliding piece movements for the whole board, it is possible if we limit ourselves to the first rank. To that end, we pre-compute a table with dimensions 8 x 2^8: 8 for the squares along the first rank, and 2^8 for the possible first rank occupancies. Each entry of the table stores the horizontal sliding piece moveset of a piece on the given square with the given occupancy. Note that this can easily fit into memory, requiring only 8 * 2^8 * 1 bytes ≈ 2 KB. Now any time we need the moveset for a sliding piece along some line, we can use the integer multiplication process described above to transform this problem into its first rank equivalent. We then look up the pre-computed moveset in the table for the corresponding square and occupancy, and finally we map this moveset back to the original line we were interested in. The name Kindergarten bitboards comes from the integer multiplication process that one learns in school and that we're using here to map lines back and forth to the first rank. (Chess programmers must be particularly precocious though, because I didn't learn multiplication until the 3rd grade!)
 
 Kindergarten bitboards are perhaps best understood through an example, so let's see how they work to calculate the vertical movements of the rook shown in this image:
 
@@ -228,10 +227,10 @@ We use Kindergarten multiplication (in this case, multiplication by the main dia
 1 . . . . . . .      . 1 . 1 . . 1 1
 ```
 
-And now we're all set to perform the lookup into the pre-computed table for the first rank. The square index is 4, since that's where the rook got mapped to. The first rank occupancy index that we just calculated is ``0b11001010 = 202``. The corresponding table entry is:
+And now we're all set to perform the lookup into the pre-computed table for the first rank. The square index is 3, since that's where the rook got mapped to. The first rank occupancy index that we just calculated is ``0b11001010 = 202``. The corresponding table entry is:
 
 ```
-FIRST_RANK_MOVES[4][202] = 0b01111110
+FIRST_RANK_MOVES[3][202] = 0b01110110
 ```
 
 Finally, we map this pattern back to the A file (again via Kindergarten multiplication):
@@ -240,16 +239,32 @@ Finally, we map this pattern back to the A file (again via Kindergarten multipli
 . . . . . . . .      . . . . . . . .
 . . . . . . . .      1 . . . . . . .
 . . . . . . . .      1 . . . . . . .
-. . . . . . . .  =>  1 . . . . . . .
+. . . . . . . .  =>  . . . . . . . .
 . . . . . . . .      1 . . . . . . .
 . . . . . . . .      1 . . . . . . .
 . . . . . . . .      1 . . . . . . .
-. 1 1 1 1 1 1 .      . . . . . . . .
+. 1 1 . 1 1 1 .      . . . . . . . .
 ```
 
 Voila! The vertical moveset for the rook, as desired. Here's the code for calculating vertical movesets in general:
 
-INSERT CODE HERE
+```python
+def get_file_moves_bb(i, occ):
+    """
+    i is index of square
+    occ is the combined occupancy of the board
+    """
+    f = i % np.uint8(7)
+    # Shift to A file
+    occ = tables.FILES[File.A] & (occ >> f)
+    # Map occupancy and index to first rank
+    occ = (tables.A1H8_DIAG * occ) >> np.uint8(56)
+    first_rank_index = (i ^ np.uint8(56)) >> np.uint8(3)
+    # Lookup moveset and map back to H file
+    occ = tables.A1H8_DIAG * tables.FIRST_RANK_MOVES[first_rank_index][occ]
+    # Isolate H file and shift back to original file
+    return (tables.FILES[File.H] & occ) >> (f ^ np.uint8(7))
+```
 
 The functions for diagonal, anti-diagonal, and horizontal movesets are similar, so we'll omit them from this description. Combining these functions appropriately gives us the movesets for rooks, bishops, and queens.
 
@@ -258,10 +273,61 @@ The functions for diagonal, anti-diagonal, and horizontal movesets are similar, 
 
 We now have a way of encoding the moveset bitboard of any given piece on any given square. But we still haven't generated the actual moves. How do we do that? Fittingly enough, we can use Python generators. We'll take it piece by piece. For each piece bitboard, we'll isolate the occupied squares. For each square, we'll compute the bitboard moveset of the piece on that source square. Finally, we'll generate a move from the source square to each destination square in the moveset.
 
+```python
+def gen_moves(board):
+    for piece in Piece:
+        piece_bb = board.get_piece_bb(piece)
+        for src in bitboard.occupied_squares(piece_bb):
+            yield from gen_piece_moves(src, board, piece)
+
+def gen_piece_moves(src, board, piece):
+    if piece == Piece.PAWN:
+        moveset = get_pawn_moves_bb(src, board)
+        # Handle promotion moves
+        white_promote = src.to_bitboard() & tables.RANKS[Rank.SEVEN] != tables.EMPTY_BB
+        black_promote = src.to_bitboard() & tables.RANKS[Rank.TWO] != tables.EMPTY_BB
+        if (board.color == Color.WHITE and white_promote) or (board.color == Color.BLACK and black_promote):
+            for dest in bitboard.occupied_squares(moveset):
+                yield Move(src, dest, Piece.QUEEN)
+                yield Move(src, dest, Piece.ROOK)
+                yield Move(src, dest, Piece.KNIGHT)
+                yield Move(src, dest, Piece.BISHOP)
+            return
+    elif piece == Piece.KNIGHT:
+        moveset = get_knight_moves_bb(src, board)
+    elif piece == Piece.BISHOP:
+        moveset = get_bishop_moves_bb(src, board)
+    elif piece == Piece.ROOK:
+        moveset = get_rook_moves_bb(src, board)
+    elif piece == Piece.QUEEN:
+        moveset = get_queen_moves_bb(src, board)
+    elif piece == Piece.KING:
+        moveset = get_king_moves_bb(src, board)
+    else:
+        # This should never happen
+        raise RuntimeError("Invalid piece: %s" % str(piece))
+
+    # Handle non-promotion moves
+    for dest in bitboard.occupied_squares(moveset):
+        yield Move(src, dest)
+```
+
+And we're done! Well, not quite - we still haven't dealt with checks. What we have generated now are called *pseudo-legal moves*; they're the moves that can be made but that potentially leave the king in check. We need to narrow these down to the *legal moves* in which the king is safe. There are a couple approaches for dealing with this, but the easiest is just to examine the state of the board after each pseudo-legal move is made, and filter out any moves that would leave the king in check:
+
+```python
+def gen_legal_moves(board):
+    return itertools.ifilterfalse(lambda m: leaves_in_check(board, m), gen_moves(board))
+    
+def leaves_in_check(board, move):
+    new_board = board.apply_move(move)
+    #TODO
+```
+
+Now we're done for real this time!
 
 ### Evaluation
 
-describe evaluation
+The third major component of a chess engine is the evaluation function. The number of possible chess games is too large for us to examine in full, so we need a way to guide our engine in the right direction. The evaluation function gives us a way to do so by assigning numeric scores to arbitrary positions: the higher the score, the better off the player to move is. The way the evaluation function determines a score is by combining various heuristics. As every chess player knows, the simplest heuristic is the differential between our material value and our oppononent's material value. In fact this heuristic works so well that 
 
 evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positions, we want quick way of determining various heuristics on the board. bitboards allow us to express many of these heuristics as simple bitwise operations 
 
