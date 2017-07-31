@@ -148,32 +148,29 @@ def leaves_in_check(board, move):
     So it suffices to look at attacks of various pieces from king sq; if these hit opponent piece of same type then it's check
     """
     board = board.apply_move(move)
-    my_color = ~board.color
-    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(piece.KING, color=my_color)))
+    board.color = ~board.color
+    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(piece.KING)))
 
-    opp_pawns = board.get_piece_bb(piece.PAWN)
-    if (tables.PAWN_ATTACKS[my_color][my_king_sq.index] & opp_pawns) != tables.EMPTY_BB: 
+    opp_color = ~board.color
+    opp_pawns = board.get_piece_bb(piece.PAWN, color=opp_color)
+    if (tables.PAWN_ATTACKS[board.color][my_king_sq.index] & opp_pawns) != tables.EMPTY_BB: 
         return True
 
-    opp_knights = board.get_piece_bb(piece.KNIGHT)
-    if (tables.KNIGHT_MOVES[my_king_sq.index] & opp_knights) != tables.EMPTY_BB:
+    opp_knights = board.get_piece_bb(piece.KNIGHT, color=opp_color)
+    if (get_knight_moves_bb(my_king_sq, board) & opp_knights) != tables.EMPTY_BB:
         return True
 
-    opp_king = board.get_piece_bb(piece.KING)
-    if (tables.KING_MOVES[my_king_sq.index] & opp_king) != tables.EMPTY_BB:
+    opp_king = board.get_piece_bb(piece.KING, color=opp_color)
+    if (get_king_moves_bb(my_king_sq, board) & opp_king) != tables.EMPTY_BB:
         return True
 
-    opp_bishops = board.get_piece_bb(piece.BISHOP)
-    opp_queens = board.get_piece_bb(piece.QUEEN)
-    bishop_moves = (get_diag_moves_bb(my_king_sq.index, board.combined_all)
-            ^ get_antidiag_moves_bb(my_king_sq.index, board.combined_all))
-    if (bishop_moves & (opp_bishops | opp_queens)) != tables.EMPTY_BB:
+    opp_bishops = board.get_piece_bb(piece.BISHOP, color=opp_color)
+    opp_queens = board.get_piece_bb(piece.QUEEN, color=opp_color)
+    if (get_bishop_moves_bb(my_king_sq, board) & (opp_bishops | opp_queens)) != tables.EMPTY_BB:
         return True
 
-    opp_rooks = board.get_piece_bb(piece.ROOK)
-    rook_moves = (get_rank_moves_bb(my_king_sq.index, board.combined_all)
-            ^ get_file_moves_bb(my_king_sq.index, board.combined_all))
-    if (rook_moves & (opp_rooks | opp_queens)) != tables.EMPTY_BB:
+    opp_rooks = board.get_piece_bb(piece.ROOK, color=opp_color)
+    if (get_rook_moves_bb(my_king_sq, board) & (opp_rooks | opp_queens)) != tables.EMPTY_BB:
         return True
 
     return False
