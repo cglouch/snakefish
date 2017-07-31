@@ -92,3 +92,9 @@ def to_str(bb):
                 bb_str.append('.')
         bb_str.append('\n')
     return ''.join(bb_str)
+
+def clear_square(bb, sq):
+    return (~sq.to_bitboard()) & bb
+
+def set_square(bb, sq):
+    return sq.to_bitboard() | bb

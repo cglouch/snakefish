@@ -47,6 +47,25 @@ class ChessBoard(object):
             None)
 
     def apply_move(self, move):
+        """
+        Applies move to chess board
+        Returns a new board, doesn't modify original
+        """
+        new_board = ChessBoard()
+        new_board.pieces = np.copy(self.pieces)
+        new_board.combined_color = np.copy(self.combined_color)
+        new_board.combined_all = np.copy(self.combined_all)
+        new_board.color = ~self.color
+
+
+
+
+
+
+
+
+
+
         pass
 
     def init_game(self):
