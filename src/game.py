@@ -29,7 +29,7 @@ def main():
         print(board)
         print("\n")
 
-        engine_move = search.best_move(board, 2)
+        engine_move = search.best_move(board, 1)
         print("Engine move is: %s") % str(engine_move)
         board = board.apply_move(engine_move)
         print("Board is now:")

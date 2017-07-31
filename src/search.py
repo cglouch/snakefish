@@ -5,7 +5,7 @@ import evaluation
 
 def negamax(board, depth, color_sign):
     if depth == 0:
-        return color_sign * evaluation.evaluate(board)
+        return np.int32(color_sign) * evaluation.evaluate(board)
     max_score = np.int32(0x80000000)
     for move in movegen.gen_legal_moves(board):
         new_board = board.apply_move(move)
