@@ -1,11 +1,5 @@
 import numpy as np
 
-import sys
-import os
-base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = os.path.join(base, "src")
-sys.path.insert(0, src)
-
 from chessboard import ChessBoard
 import movegen
 
@@ -27,6 +21,4 @@ def test_new():
     assert perft(b, 3) == 8902
     assert perft(b, 4) == 197281 # this will fail because of en-passant
 
-import cProfile
-cProfile.run('test_new()')
 
