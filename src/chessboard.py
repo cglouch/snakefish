@@ -46,6 +46,35 @@ class ChessBoard(object):
                 bitboard.is_set(self.get_piece_bb(p, color), sq)),
             None)
 
+    def set_square(self, sq, piece, color=None):
+        # NOTE: Defaults to current color
+        if color is None:
+            color = self.color
+        piece_bb = self.get_piece_bb(piece, color)
+        combined_bb = self.combined_color[color]
+        all_bb = self.combined_all
+
+        self.pieces[color][piece] = bitboard.set_square(piece_bb, sq)
+        self.combined_color[color] = bitboard.set_square(combined_bb, sq)
+        self.combined_all = bitboard.set_square(all_bb, sq)
+
+    def clear_square(self, sq, color=None):
+        # NOTE: Defaults to current color
+        if color is None:
+            color = self.color
+
+        piece = self.piece_on(sq, color)
+        if piece is None:
+            return
+
+        piece_bb = self.get_piece_bb(piece, color)
+        combined_bb = self.combined_color[color]
+        all_bb = self.combined_all
+
+        self.pieces[color][piece] = bitboard.clear_square(piece_bb, sq)
+        self.combined_color[color] = bitboard.clear_square(combined_bb, sq)
+        self.combined_all = bitboard.clear_square(all_bb, sq)
+
     def apply_move(self, move):
         """
         Applies move to chess board
@@ -55,18 +84,16 @@ class ChessBoard(object):
         new_board.pieces = np.copy(self.pieces)
         new_board.combined_color = np.copy(self.combined_color)
         new_board.combined_all = np.copy(self.combined_all)
-        new_board.color = ~self.color
+        new_board.color = self.color
 
+        piece = self.piece_on(move.src)
+        new_board.clear_square(move.src)
+        new_board.clear_square(move.dest, ~new_board.color) # in event of a capture
+        new_board.set_square(move.dest, piece if move.promo is None else move.promo)
+        
+        new_board.color = ~new_board.color
+        return new_board
 
-
-
-
-
-
-
-
-
-        pass
 
     def init_game(self):
         self.pieces[Color.WHITE][Piece.PAWN] = np.uint64(0x000000000000FF00)
