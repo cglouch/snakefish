@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 
 import tables
@@ -129,7 +130,50 @@ def gen_piece_moves(src, board, piece):
 
 
 def gen_moves(board):
+    # NOTE: generates pseudo-legal moves
     for piece in Piece:
         piece_bb = board.get_piece_bb(piece)
         for src in bitboard.occupied_squares(piece_bb):
             yield from gen_piece_moves(src, board, piece)
+
+
+def gen_legal_moves(board):
+    return itertools.filterfalse(lambda m: leaves_in_check(board, m), gen_moves(board))
+
+def leaves_in_check(board, move):
+    """
+    Applies move to board and returns True iff king is left in check
+
+    Uses symmetry of attack e.g. if white knight attacks black king, then black knight on king sq would attack white knight
+    So it suffices to look at attacks of various pieces from king sq; if these hit opponent piece of same type then it's check
+    """
+    board = board.apply_move(move)
+    my_color = ~board.color
+    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(piece.KING, color=my_color)))
+
+    opp_pawns = board.get_piece_bb(piece.PAWN)
+    if (tables.PAWN_ATTACKS[my_color][my_king_sq.index] & opp_pawns) != tables.EMPTY_BB: 
+        return True
+
+    opp_knights = board.get_piece_bb(piece.KNIGHT)
+    if (tables.KNIGHT_MOVES[my_king_sq.index] & opp_knights) != tables.EMPTY_BB:
+        return True
+
+    opp_king = board.get_piece_bb(piece.KING)
+    if (tables.KING_MOVES[my_king_sq.index] & opp_king) != tables.EMPTY_BB:
+        return True
+
+    opp_bishops = board.get_piece_bb(piece.BISHOP)
+    opp_queens = board.get_piece_bb(piece.QUEEN)
+    bishop_moves = (get_diag_moves_bb(my_king_sq.index, board.combined_all)
+            ^ get_antidiag_moves_bb(my_king_sq.index, board.combined_all))
+    if (bishop_moves & (opp_bishops | opp_queens)) != tables.EMPTY_BB:
+        return True
+
+    opp_rooks = board.get_piece_bb(piece.ROOK)
+    rook_moves = (get_rank_moves_bb(my_king_sq.index, board.combined_all)
+            ^ get_file_moves_bb(my_king_sq.index, board.combined_all))
+    if (rook_moves & (opp_rooks | opp_queens)) != tables.EMPTY_BB:
+        return True
+
+    return False

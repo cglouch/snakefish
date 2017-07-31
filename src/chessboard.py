@@ -49,9 +49,6 @@ class ChessBoard(object):
     def apply_move(self, move):
         pass
 
-    def is_legal(self, move):
-        pass
-
     def init_game(self):
         self.pieces[Color.WHITE][Piece.PAWN] = np.uint64(0x000000000000FF00)
         self.pieces[Color.WHITE][Piece.KNIGHT] = np.uint64(0x0000000000000042)
