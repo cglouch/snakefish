@@ -29,6 +29,8 @@ FILE_MASKS = np.fromiter(
 A1H8_DIAG = np.uint64(0x8040201008040201)
 H1A8_ANTIDIAG = np.uint64(0x0102040810204080)
 
+CENTER = np.uint64(0x00003C3C3C3C0000)
+
 def compute_diag_mask(i):
     diag = 8*(i & 7) - (i & 56)
     north = -diag & (diag >> 31)
