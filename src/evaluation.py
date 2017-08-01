@@ -20,12 +20,15 @@ class Score(Enum):
 def evaluate(board):
     return eval_pieces(board) + eval_center(board) + eval_moves(board)
 
+def piece_diff(board, piece):
+    return np.int32(bitboard.pop_count(board.pieces[board.color][piece])) - np.int32(bitboard.pop_count(board.pieces[~board.color][piece]))
+
 def eval_pieces(board):
-    return (Score.PAWN.value * bitboard.pop_count(board.get_piece_bb(Piece.PAWN))
-        + Score.KNIGHT.value * bitboard.pop_count(board.get_piece_bb(Piece.KNIGHT)) 
-        + Score.BISHOP.value * bitboard.pop_count(board.get_piece_bb(Piece.BISHOP))
-        + Score.ROOK.value * bitboard.pop_count(board.get_piece_bb(Piece.ROOK))
-        + Score.QUEEN.value * bitboard.pop_count(board.get_piece_bb(Piece.QUEEN)))
+    return (Score.PAWN.value * piece_diff(board, Piece.PAWN)
+        + Score.KNIGHT.value * piece_diff(board, Piece.KNIGHT)
+        + Score.BISHOP.value * piece_diff(board, Piece.BISHOP)
+        + Score.ROOK.value * piece_diff(board, Piece.ROOK)
+        + Score.QUEEN.value * piece_diff(board, Piece.QUEEN))
 
 def eval_center(board):
     return Score.CENTER.value * bitboard.pop_count(board.combined_color[board.color] & tables.CENTER)
