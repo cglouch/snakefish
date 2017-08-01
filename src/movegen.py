@@ -52,7 +52,7 @@ def get_file_moves_bb(i, occ):
     i is index of square
     occ is the combined occupancy of the board
     """
-    f = i % np.uint8(7)
+    f = i & np.uint8(7)
     # Shift to A file
     occ = tables.FILES[File.A] & (occ >> f)
     # Map occupancy and index to first rank
