@@ -6,7 +6,15 @@ Snakefish uses a bitboard approach to represent the state of the chess board and
 
 Check out a sample game I (white) played against Snakefish (black):
 
-![](https://i.imgur.com/XeYJPfg.gif)
+<p align="center">
+  <img src="https://i.imgur.com/L9evkOR.gif">
+</p>
+
+You can see the engine plays okay up until the midgame when it loses its queen to a discovered check. This was caused by a combination of shallow search depth and the horizon effect, which we'll discuss later. Nonetheless, the engine usually does manage to win against weaker players (sorry Dad!).
+
+Note that I haven't implemented castling or en passant moves yet, as these complicate the code and are a bit of a hassle to get working. My description will pretend these moves don't exist. Eventually I'll try to add them in.
+
+I chose to write this in Python since it was more of a learning exercise than an attempt at a competitive engine. Obviously the downside of Python for something performance intensive is that it's pretty slow. If I were making a serious engine I would likely rewrite it in something like C++. That said, using Python was an interesting challenge since I had to really pay attention to efficiency to even search up to a shallow depth. 
 
 ## Chess engine basics
 
@@ -59,7 +67,7 @@ Here's what the bitboards look like visually at the beginning of a game:
 
 ![Beginning](http://chessprogramming.wikispaces.com/file/view/bitboard.gif/158504035/bitboard.gif)
 
-Our implementation maps squares to bits as described [here](https://github.com/cglouch/snakefish/blob/16f1e9f893af3e43d96ed3d20f122527aa327348/src/bitboard.py#L7-L19). For instance in the image above, the white pawns bitboard would be the 64-bit value `0b0000000000000000000000000000000000000000000000001111111100000000`.
+Our implementation maps squares to bits as described [here](https://github.com/cglouch/snakefish/blob/1a78680e604aea0158e8ec121fee57219b72a79a/src/bitboard.py#L8-L19). For instance in the image above, the white pawns bitboard would be the 64-bit value `0b0000000000000000000000000000000000000000000000001111111100000000`.
 
 #### So what's the point?
 
@@ -77,7 +85,7 @@ class Square(object):
         self.index = np.uint8(index)
 ```
 
-A square simply stores an index from 0 to 63. Note that given a square, we can trivially convert it to a bitboard via shifting left by the index. Moreover, given a bitboard, we can get the square representing the least significant bit with [some clever bit twiddling](https://github.com/cglouch/snakefish/blob/31764a496b93f64a9a88751144faca9e6f9603f4/src/bitboard.py#L23-L38). This will come in handy.
+A square simply stores an index from 0 to 63. Note that given a square, we can trivially convert it to a bitboard via shifting left by the index. Moreover, given a bitboard, we can get the square representing the least significant bit with [some clever bit twiddling](https://github.com/cglouch/snakefish/blob/1a78680e604aea0158e8ec121fee57219b72a79a/src/bitboard.py#L25-L62). This will come in handy.
 
 As for the definition of a piece, we'll use a simple enum:
 
@@ -181,7 +189,7 @@ Two key observations:
 * We can use a combination of integer multiplication and bit shifting to map any pattern along a rank, file, diagonal, or anti-diagonal to the same pattern along the first rank, and vice versa. This process is described [here](http://chessprogramming.wikispaces.com/Flipping+Mirroring+and+Rotating#Rank,%20File%20and%20Diagonal). For instance, here's how we can rotate the A file to the first rank:
 ![Rotation](https://i.imgur.com/T9CPHGj.png)
 
-These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. The main idea underlying Kindergarten bitboards is that while it's impossible to store sliding piece movements for the whole board, it is possible if we limit ourselves to the first rank. To that end, we pre-compute a table with dimensions 8 x 2^8: 8 for the squares along the first rank, and 2^8 for the possible first rank occupancies. Each entry of the table stores the horizontal sliding piece moveset of a piece on the given square with the given occupancy. Note that this can easily fit into memory, requiring only 8 * 2^8 * 1 bytes ≈ 2 KB. Now any time we need the moveset for a sliding piece along some line, we can use the integer multiplication process described above to transform this problem into its first rank equivalent. We then look up the pre-computed moveset in the table for the corresponding square and occupancy, and finally we map this moveset back to the original line we were interested in. The name Kindergarten bitboards comes from the integer multiplication process that one learns in school and that we're using here to map lines back and forth to the first rank. (Chess programmers must be particularly precocious though, because I didn't learn multiplication until the 3rd grade!)
+These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. The main idea underlying Kindergarten bitboards is that while it's impossible to store sliding piece movements for the whole board, it is possible if we limit ourselves to the first rank. To that end, we pre-compute a table with dimensions 8 x 2^8: 8 for the squares along the first rank, and 2^8 for the possible first rank occupancies. Each entry of the table stores the horizontal sliding piece moveset of a piece on the given square with the given occupancy. Note that this can easily fit into memory, requiring only 8 * 2^8 * 1 bytes ≈ 2 KB. Now any time we need the moveset for a sliding piece along some line, we can use the integer multiplication process described above to transform this problem into its first rank equivalent. We then look up the pre-computed moveset in the table for the corresponding square and occupancy, and finally we map this moveset back to the original line we were interested in. The name Kindergarten bitboards comes from the integer multiplication process that one learns in school and that we're using here to map lines back and forth to the first rank. (Chess programmers must be particularly precocious though, because I didn't learn this multiplication algorithm until the 3rd grade!)
 
 Kindergarten bitboards are perhaps best understood through an example, so let's see how they work to calculate the vertical movements of the rook shown in this image:
 
@@ -358,7 +366,7 @@ And we're done for real this time!
 
 The third major component of a chess engine is evaluation. The evaluation function takes an arbitrary board state and assigns to it a numeric score: the higher the score, the better off the player to move is. This will be used by the search algorithm to guide our engine in the right direction.
 
-The way evaluation typically works is by combining various *heuristics* that are known to indicate a strong position. This is another area where the bitboard approach shines, since bitboards allow us to express many of these heuristics as simple bitwise operations. For instance, suppose we wanted to know how many of our pieces are in the center of the board? As every beginner chess player knows, this is likely something we're interested in, as a strong center is often the key to a good position. Thankfully, bitboards make this easy:
+The way evaluation typically works is by combining various *heuristics* that are known to indicate a strong position. This is another area where the bitboard approach shines, since we can express many of these heuristics as simple bitwise operations. For instance, suppose we wanted to know how many of our pieces are in the center of the board? As every beginner chess player knows, this is likely something we're interested in, as a strong center is often the key to a good position. Thankfully, bitboards make this easy:
 
 ```python
 def eval_center(board):
@@ -384,15 +392,18 @@ class Score(Enum):
 def evaluate(board):
     return eval_pieces(board) + eval_center(board) + eval_moves(board)
 
+def piece_diff(board, piece):
+    return np.int32(bitboard.pop_count(board.pieces[board.color][piece])) - np.int32(bitboard.pop_count(board.pieces[~board.color][piece]))
+
 def eval_pieces(board):
     """
-    Evaluates material weight of our pieces
+    Evaluates material weight difference in our favor
     """
-    return (Score.PAWN.value * bitboard.pop_count(board.get_piece_bb(Piece.PAWN))
-        + Score.KNIGHT.value * bitboard.pop_count(board.get_piece_bb(Piece.KNIGHT)) 
-        + Score.BISHOP.value * bitboard.pop_count(board.get_piece_bb(Piece.BISHOP))
-        + Score.ROOK.value * bitboard.pop_count(board.get_piece_bb(Piece.ROOK))
-        + Score.QUEEN.value * bitboard.pop_count(board.get_piece_bb(Piece.QUEEN)))
+    return (Score.PAWN.value * piece_diff(board, Piece.PAWN)
+        + Score.KNIGHT.value * piece_diff(board, Piece.KNIGHT)
+        + Score.BISHOP.value * piece_diff(board, Piece.BISHOP)
+        + Score.ROOK.value * piece_diff(board, Piece.ROOK)
+        + Score.QUEEN.value * piece_diff(board, Piece.QUEEN))
 
 def eval_moves(board):
     """
@@ -417,7 +428,7 @@ Ideally we would carry out this process until we reached checkmate. Unfortunatel
 def negamax(board, depth):
     if depth == 0:
         return evaluation.evaluate(board)
-    max_score = np.int32(0x80000000) # minimum 32 bit signed integer
+    max_score = evaluation.Score.CHECKMATE.value
     for move in movegen.gen_legal_moves(board):
         new_board = board.apply_move(move)
         score = -negamax(new_board, depth-1)
@@ -429,7 +440,7 @@ Negamax gives us the value of the position to the current player. So in order to
 
 ```python
 def best_move(board, depth):
-    max_score = np.int32(0x80000000) # minimum 32 bit signed integer
+    max_score = evaluation.Score.CHECKMATE.value
     for move in movegen.gen_legal_moves(board):
         new_board = board.apply_move(move)
         score = -negamax(new_board, depth-1)
@@ -463,6 +474,7 @@ def test_new():
     assert perft(b, 1) == 20
     assert perft(b, 2) == 400
     assert perft(b, 3) == 8902
+    assert perft(b, 4) == 197281
 ```
 
 If our values match the known values, it's a strong signal that our move generation code is correct. Moreover if our values don't match, then we definitely know there's an issue.
@@ -475,11 +487,13 @@ I used [pytest](https://docs.pytest.org/en/latest/) for my testing framework. It
 
 My engine is rather primitive at the moment, and could be optimized in a variety of ways. Some potential improvements:
 
-* Alpha-beta pruning - This technique improves on the search algorithm by pruning moves that are guaranteed not to affect the negamax score. This is actually something chess players do without realizing it. The thinking is approximately: "If I make this move m1, all the continuations lead to a good position for me. What if I make move m2? Ah if I do that, then he has a move m3 that leads to a really bad position for me. So I don't even need to consider his other responses to m2."
+* Alpha-beta pruning - This technique improves on the search algorithm by pruning moves that are guaranteed not to affect the negamax score. This is actually something chess players do without realizing it. The thinking is approximately: "If I make this move m1, all the continuations lead to a good position for me. What if I make move m2? Ah if I do that, then he has a move that leads to a really bad position for me. So I don't even need to consider his other responses to m2."
 
-* Zobrist hashing - This is a method for implementing transposition tables. In chess, it's often the case that different sequences of moves lead to the same board state ("1. e4 e5 2. Nf3 Nf6" results in the same position as "1. Nf3 Nf6 2. e4 e5", for example). Unfortunately, the negamax algorithm doesn't realize this, since these move sequences lead to different positions in the game tree. Zobrist hashing is a clever way of hashing positions that allows us to memoize negamax results and avoid duplicate computations for transpositions. 
+* Move ordering - Currently the engine generates moves without much thought as to their order. This doesn't matter at the moment since the search algorithm has to consider each move sequence anyway. However, with alpha-beta pruning in place, the move ordering becomes important since we'd like to prune suboptimal branches as early as possible. If we generate the best moves first, then the alpha-beta search will be able to eliminate most of the bad moves right away. An optimal ordering actually lets us calculate to twice the depth in the same amount of time.
 
-* Quiescence search - One of the problems our engine currently suffers from is called the horizon effect. 
+* Zobrist hashing - This is a method for implementing transposition tables. In chess, it's often the case that different sequences of moves lead to the same board state ("1. e4 e5 2. Nf3 Nf6" results in the same position as "1. Nf3 Nf6 2. e4 e5", for example). Unfortunately, the negamax algorithm doesn't realize this, since these move sequences lead to different positions in the game tree. Zobrist hashing allows us to memoize negamax results and avoid duplicate computations for transpositions. 
+
+* Quiescence search - One of the problems our engine currently suffers from is called the horizon effect. This arises when negamax reaches its maximum depth and has to return the evaluation of a board position that's still unclear. For instance, in the example game pictured at the beginning of this README, the engine ends up losing its queen after my discovered check. What happened here was that the search depth was 3, and the engine saw that it could keep the queen for 3 turns; however, it failed to realize that it would lose the queen on the 4th turn. Essentially, the horizon it could see was too short. Quiescence search resolves this dilemma by continuing to a search for a "quiet" position if the board is still unclear at the max depth. 
 
 Perhaps in the future I'll implement some of these.
 
@@ -489,6 +503,6 @@ There's a lot of information about chess engine programming on the internet, but
 
 * [https://chessprogramming.wikispaces.com/](https://chessprogramming.wikispaces.com/) - This is the definitive resource for chess engine programming. It's a bit hard to navigate and can be overly technical for a beginner, but all the information you'll ever need is contained in here somewhere.
 * [https://github.com/official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish) - Popular, open source, highly optimized chess engine. 
-* [http://pages.cs.wisc.edu/~psilord/blog/data/chess-pages/](http://pages.cs.wisc.edu/~psilord/blog/data/chess-pages/) - Introductory primer on bitboards. Some of the pages are unfinished but nonetheless a good introduction.
+* [http://pages.cs.wisc.edu/~psilord/blog/data/chess-pages/](http://pages.cs.wisc.edu/~psilord/blog/data/chess-pages/) - Primer on bitboards. Some of the pages are unfinished but nonetheless a good introduction.
 * [https://jordanbray.github.io/chess/chess/index.html](https://jordanbray.github.io/chess/chess/index.html) - Move generation library in Rust. Clean code and well-documented. I took inspiration from here for my high-level movegen design.
 * [http://www.michaelburge.us/2017/09/10/injecting-shellcode-to-speed-up-amazon-redshift.html](http://www.michaelburge.us/2017/09/10/injecting-shellcode-to-speed-up-amazon-redshift.html) - Small, self-contained chess engine written in C, with a nice walkthrough. I referred to this for some of the evaluation functions.
