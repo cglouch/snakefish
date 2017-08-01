@@ -1,13 +1,12 @@
-<img align="right" width="45" height="45" src="https://i.imgur.com/d6zOkdQ.png">
-
 # Snakefish
 A chess engine created from scratch in Python
 
 ## Overview
 Snakefish uses a bitboard approach to represent the state of the chess board and to generate possible moves. Search is performed using the negamax algorithm with a simple heuristic. The name is a play on "Stockfish", a well known chess engine (and "snake", cause, you know, Python).
 
-Check out a sample game I played against Snakefish here! 
+Check out a sample game I (white) played against Snakefish (black):
 
+![](https://i.imgur.com/XeYJPfg.gif)
 
 ## Chess engine basics
 
@@ -164,7 +163,7 @@ def get_king_moves_bb(src, board):
     return tables.KING_MOVES[src.index] & ~board.combined_color[board.color]
 ```
 
-This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, these checks can be performed simultaneously in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we do need to iterate through the squares set in the resulting bitboard, but it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
+This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, these checks can be performed simultaneously in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we do need to iterate through the squares set in the resulting bitboard. However, it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
 
 With a couple tweaks, we can use the method described above to calculate the movesets for the pawns and the knights as well. Kings, pawns, and knights are all similar in that they're *non-sliding* pieces. From a computational perspective, these are nice because their movement really only depends on the source square and whether or not the destination square is occupied by a same-colored piece. This means that we can compute their movesets easily with a lookup based on the piece's square followed by a simple bitwise AND.
 
@@ -254,7 +253,7 @@ def get_file_moves_bb(i, occ):
     i is index of square
     occ is the combined occupancy of the board
     """
-    f = i % np.uint8(7)
+    f = i & np.uint8(7)
     # Shift to A file
     occ = tables.FILES[File.A] & (occ >> f)
     # Map occupancy and index to first rank
@@ -316,37 +315,180 @@ And we're done! Well, not quite - we still haven't dealt with checks. What we ha
 
 ```python
 def gen_legal_moves(board):
-    return itertools.ifilterfalse(lambda m: leaves_in_check(board, m), gen_moves(board))
-    
+    return itertools.filterfalse(lambda m: leaves_in_check(board, m), gen_moves(board))
+
 def leaves_in_check(board, move):
-    new_board = board.apply_move(move)
-    #TODO
+    """
+    Applies move to board and returns True iff king is left in check
+    Uses symmetry of attack e.g. if white knight attacks black king, then black knight on king sq would attack white knight
+    So it suffices to look at attacks of various pieces from king sq; if these hit opponent piece of same type then it's check
+    """
+    board = board.apply_move(move)
+    board.color = ~board.color
+    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(Piece.KING)))
+
+    opp_color = ~board.color
+    opp_pawns = board.get_piece_bb(Piece.PAWN, color=opp_color)
+    if (tables.PAWN_ATTACKS[board.color][my_king_sq.index] & opp_pawns) != tables.EMPTY_BB: 
+        return True
+
+    opp_knights = board.get_piece_bb(Piece.KNIGHT, color=opp_color)
+    if (get_knight_moves_bb(my_king_sq, board) & opp_knights) != tables.EMPTY_BB:
+        return True
+
+    opp_king = board.get_piece_bb(Piece.KING, color=opp_color)
+    if (get_king_moves_bb(my_king_sq, board) & opp_king) != tables.EMPTY_BB:
+        return True
+
+    opp_bishops = board.get_piece_bb(Piece.BISHOP, color=opp_color)
+    opp_queens = board.get_piece_bb(Piece.QUEEN, color=opp_color)
+    if (get_bishop_moves_bb(my_king_sq, board) & (opp_bishops | opp_queens)) != tables.EMPTY_BB:
+        return True
+
+    opp_rooks = board.get_piece_bb(Piece.ROOK, color=opp_color)
+    if (get_rook_moves_bb(my_king_sq, board) & (opp_rooks | opp_queens)) != tables.EMPTY_BB:
+        return True
+
+    return False
 ```
 
-Now we're done for real this time!
+And we're done for real this time!
 
 ### Evaluation
 
-The third major component of a chess engine is the evaluation function. The number of possible chess games is too large for us to examine in full, so we need a way to guide our engine in the right direction. The evaluation function gives us a way to do so by assigning numeric scores to arbitrary positions: the higher the score, the better off the player to move is. The way the evaluation function determines a score is by combining various heuristics. As every chess player knows, the simplest heuristic is the differential between our material value and our oppononent's material value. In fact this heuristic works so well that 
+The third major component of a chess engine is evaluation. The evaluation function takes an arbitrary board state and assigns to it a numeric score: the higher the score, the better off the player to move is. This will be used by the search algorithm to guide our engine in the right direction.
 
-evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positions, we want quick way of determining various heuristics on the board. bitboards allow us to express many of these heuristics as simple bitwise operations 
+The way evaluation typically works is by combining various *heuristics* that are known to indicate a strong position. This is another area where the bitboard approach shines, since bitboards allow us to express many of these heuristics as simple bitwise operations. For instance, suppose we wanted to know how many of our pieces are in the center of the board? As every beginner chess player knows, this is likely something we're interested in, as a strong center is often the key to a good position. Thankfully, bitboards make this easy:
 
-consider problem of assessing how many pieces are in center of board - this is a heuristic we're probably interested in. With bitboards, this is easy to compute! Just take the bitwise and of our combined pieces and the bitboard representing the center of the board; then count the number of 1s set. 
+```python
+def eval_center(board):
+    """
+    Evaluates number of our pieces in center of board
+    """
+    return Score.CENTER.value * bitboard.pop_count(board.combined_color[board.color] & tables.CENTER)
+```
+
+There are a ton of heuristics to consider, and sophisticated chess engines like Stockfish and Komodo use a variety of them to arrive at an (almost always) optimal move. We'll keep things simple, though, and stick to some basic ones:
+
+```python
+class Score(Enum):
+    PAWN = np.int32(100)
+    KNIGHT = np.int32(300)
+    BISHOP = np.int32(300)
+    ROOK = np.int32(500)
+    QUEEN = np.int32(900)
+    CHECKMATE = np.int32(-1000000)
+    CENTER = np.int32(5)
+    MOVE = np.int32(5)
+
+def evaluate(board):
+    return eval_pieces(board) + eval_center(board) + eval_moves(board)
+
+def eval_pieces(board):
+    """
+    Evaluates material weight of our pieces
+    """
+    return (Score.PAWN.value * bitboard.pop_count(board.get_piece_bb(Piece.PAWN))
+        + Score.KNIGHT.value * bitboard.pop_count(board.get_piece_bb(Piece.KNIGHT)) 
+        + Score.BISHOP.value * bitboard.pop_count(board.get_piece_bb(Piece.BISHOP))
+        + Score.ROOK.value * bitboard.pop_count(board.get_piece_bb(Piece.ROOK))
+        + Score.QUEEN.value * bitboard.pop_count(board.get_piece_bb(Piece.QUEEN)))
+
+def eval_moves(board):
+    """
+    Evaluates number of moves available
+    NOTE: this considers stalemate to be as bad as checkmate, for simplicity
+    """
+    num = len(list(movegen.gen_legal_moves(board)))
+    if num == 0:
+        return Score.CHECKMATE.value
+    else:
+        return Score.MOVE.value * np.int32(num)
+```
 
 
 ### Search
 
-Chess has a [branching factor](https://en.wikipedia.org/wiki/Branching_factor) of ~35
+Search is the final component of a chess engine. Given a board state, we'd like to search the game tree resulting from that state to find the optimal move. To do so, we'll use a variant of the *minimax* algorithm called *negamax*. The idea of negamax is that we assume our opponent plays optimally. For a given position, we look at every possible move we could make, and choose the one that minimizes the benefit of the resulting position to our opponent. Meanwhile, the opponent is doing the same thing. Since chess is a 2-player, zero-sum game, the benefit of a position to one player is the negative of the benefit of the position to the opposing player. So really all we're doing is maximizing the value of the resulting position to us.
+
+Ideally we would carry out this process until we reached checkmate. Unfortunately, chess has a [branching factor](https://en.wikipedia.org/wiki/Branching_factor) of ~35, which means that the game tree grows exponentially very quickly. To resolve this issue, we call negamax with a fixed depth - once the depth has been reached, negamax returns the result of the evaluation function on the position, and doesn't recurse any further. Here's the algorithm:
+
+```python
+def negamax(board, depth):
+    if depth == 0:
+        return evaluation.evaluate(board)
+    max_score = np.int32(0x80000000) # minimum 32 bit signed integer
+    for move in movegen.gen_legal_moves(board):
+        new_board = board.apply_move(move)
+        score = -negamax(new_board, depth-1)
+        max_score = max(score, max_score)
+    return max_score
+```
+
+Negamax gives us the value of the position to the current player. So in order to get the best move, we proceed as follows:
+
+```python
+def best_move(board, depth):
+    max_score = np.int32(0x80000000) # minimum 32 bit signed integer
+    for move in movegen.gen_legal_moves(board):
+        new_board = board.apply_move(move)
+        score = -negamax(new_board, depth-1)
+        if score > max_score:
+            max_score = score
+            best_move = move
+    return best_move
+```
+
+And that's it! We finally have enough to assemble a working chess engine. 
+
 
 ## Tests
 
+Thoroughly testing a chess program is a challenge in and of itself. One strategy that's often used is called [perft](https://chessprogramming.wikispaces.com/Perft). This is a debugging function that walks the game tree up to some specified depth, and counts the number of leaf nodes (i.e. the number of possible board states at the given depth). We can run perft from a variety of starting positions, and compare our results to known values:
+
+```python
+def perft(board, depth):
+    if depth == 0:
+        return 1
+    count = 0
+    moves = movegen.gen_legal_moves(board)
+    for m in moves:
+        count += perft(board.apply_move(m), depth-1)
+    return count
+
+def test_new():
+    b = ChessBoard()
+    b.init_game()
+    assert perft(b, 0) == 1
+    assert perft(b, 1) == 20
+    assert perft(b, 2) == 400
+    assert perft(b, 3) == 8902
+```
+
+If our values match the known values, it's a strong signal that our move generation code is correct. Moreover if our values don't match, then we definitely know there's an issue.
 
 
+I used [pytest](https://docs.pytest.org/en/latest/) for my testing framework. It's a pretty nice python testing tool that eliminates a lot of the boilerplate associated with unittest or other strategies. I have some tests in basic.py just for verifying the basic functionality of my bitboard code, and a couple tests in perft.py for the move generation code. (Unfortunately most perft tests will fail until I implement castling / en-passant).
+
+
+## Further improvements
+
+My engine is rather primitive at the moment, and could be optimized in a variety of ways. Some potential improvements:
+
+* Alpha-beta pruning - This technique improves on the search algorithm by pruning moves that are guaranteed not to affect the negamax score. This is actually something chess players do without realizing it. The thinking is approximately: "If I make this move m1, all the continuations lead to a good position for me. What if I make move m2? Ah if I do that, then he has a move m3 that leads to a really bad position for me. So I don't even need to consider his other responses to m2."
+
+* Zobrist hashing - This is a method for implementing transposition tables. In chess, it's often the case that different sequences of moves lead to the same board state ("1. e4 e5 2. Nf3 Nf6" results in the same position as "1. Nf3 Nf6 2. e4 e5", for example). Unfortunately, the negamax algorithm doesn't realize this, since these move sequences lead to different positions in the game tree. Zobrist hashing is a clever way of hashing positions that allows us to memoize negamax results and avoid duplicate computations for transpositions. 
+
+* Quiescence search - One of the problems our engine currently suffers from is called the horizon effect. 
+
+Perhaps in the future I'll implement some of these.
 
 ## Resources
 
-chessprogrammingwiki  
-stockfish  
-wisc edu page  
-rust move gen lib  
-chess engine in c amazon redshift  
+There's a lot of information about chess engine programming on the internet, but it's not always very approachable. Code is often presented with a ton of optimizations already in place which makes it difficult to understand conceptually. Also, there's a huge variety of different approaches and designs to choose from, which can be paralyzing when starting out. Here are a couple resources that I personally found useful for writing my engine:
+
+* [https://chessprogramming.wikispaces.com/](https://chessprogramming.wikispaces.com/) - This is the definitive resource for chess engine programming. It's a bit hard to navigate and can be overly technical for a beginner, but all the information you'll ever need is contained in here somewhere.
+* [https://github.com/official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish) - Popular, open source, highly optimized chess engine. 
+* [http://pages.cs.wisc.edu/~psilord/blog/data/chess-pages/](http://pages.cs.wisc.edu/~psilord/blog/data/chess-pages/) - Introductory primer on bitboards. Some of the pages are unfinished but nonetheless a good introduction.
+* [https://jordanbray.github.io/chess/chess/index.html](https://jordanbray.github.io/chess/chess/index.html) - Move generation library in Rust. Clean code and well-documented. I took inspiration from here for my high-level movegen design.
+* [http://www.michaelburge.us/2017/09/10/injecting-shellcode-to-speed-up-amazon-redshift.html](http://www.michaelburge.us/2017/09/10/injecting-shellcode-to-speed-up-amazon-redshift.html) - Small, self-contained chess engine written in C, with a nice walkthrough. I referred to this for some of the evaluation functions.
