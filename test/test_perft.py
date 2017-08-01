@@ -19,6 +19,6 @@ def test_new():
     assert perft(b, 1) == 20
     assert perft(b, 2) == 400
     assert perft(b, 3) == 8902
-    assert perft(b, 4) == 197281 # this will fail because of en-passant
+    assert perft(b, 4) == 197281
 
 

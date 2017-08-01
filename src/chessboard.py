@@ -11,8 +11,6 @@ class ChessBoard(object):
         self.combined_all = np.uint64(0) # Combined bitboard for all pieces on the board
         self.color = Color.WHITE # Color to move
 
-    #TODO: make function for updating piece bitboards so i dont forget to updated combined_color/combined_all
-
     def  __str__(self):
         board_str = []
         for r in reversed(Rank):
