@@ -2,7 +2,7 @@
 A chess engine created from scratch in Python
 
 ## Overview
-Snakefish uses a bitboard approach to represent the state of the chess board and to generate possible moves. Search is performed using the negamax algorithm with a simple heuristic. 
+Snakefish uses a bitboard approach to represent the state of the chess board and to generate possible moves. Search is performed using the negamax algorithm with a simple heuristic. The name is a play on "Stockfish", a well known chess engine (and "snake", cause, you know, Python).
 
 Check out a sample game I played against Snakefish here! 
 
@@ -19,7 +19,7 @@ We will give an overview of these components and describe how they're implemente
 
 ### Board representation
 
-The first decision one must make when writing a chess engine is deciding on a board representation.  Because engines need to compute a huge number of positions, we want to choose a board representation that allows for efficient move generation and fast evaluation. Unsurprisingly, this turns out to be difficult! Generating moves correctly and efficiently is probably the hardest part of any engine.
+The first decision one makes when writing a chess engine is deciding on a board representation.  Because engines need to analyze a huge number of positions, we want to choose a board representation that allows for efficient move generation, fast evaluation, and minimal memory footprint. This turns out to be the hardest part of implementing an engine!
 
 Two approaches come to mind for representing a chess board. The most intuitive is the **square-centric** representation, in which we describe the board in terms of the contents of its 64 squares. The natural approach might be to use a 8x8 2D array to represent the squares of the board, where each entry corresponds to the piece on that square. So the starting position would look like:
 
@@ -50,13 +50,20 @@ class ChessBoard(object):
         self.combined_side = np.zeros(2, dtype=np.uint64) # Combined bitboard for all pieces of given side
         self.combined_all = np.uint64(0) # Combined bitboard for all pieces on the board
         self.to_move = Color.WHITE
+        ...
 ```
 
 Here's what the bitboards look like visually at the beginning of a game:
 
 ![Beginning](http://chessprogramming.wikispaces.com/file/view/bitboard.gif/158504035/bitboard.gif)
 
-Our implementation maps squares to bits as described [here](https://github.com/cglouch/snakefish/blob/16f1e9f893af3e43d96ed3d20f122527aa327348/src/bitboard.py#L7-L19). So for instance in the image above, the white pawns bitboard would be the 64-bit value `0b0000000000000000000000000000000000000000000000001111111100000000`.
+Our implementation maps squares to bits as described [here](https://github.com/cglouch/snakefish/blob/16f1e9f893af3e43d96ed3d20f122527aa327348/src/bitboard.py#L7-L19). For instance in the image above, the white pawns bitboard would be the 64-bit value `0b0000000000000000000000000000000000000000000000001111111100000000`.
+
+#### So what's the point?
+
+Good question! At first bitboards seem like a perplexing choice. Why go through all this trouble just to define the board? Well as alluded to earlier, the big win for bitboards is efficiency. With a bit of cleverness, we can express most of the computations we need to perform in terms of bitwise operations. This effectively "parallelizes" the computations, and drastically cuts down on the number of instructions needed to generate moves - a major bottleneck for a chess engine. Moreover, bitboards are fairly compact in terms of memory usage. While there's no shortage of RAM these days, a low memory footprint still helps fit more data into cache, which is important for performance. 
+
+Let's look at an example of a computation where the bitboard approach shines. 
 
 ### Evaluation
 
@@ -75,6 +82,6 @@ Chess has a [branching factor](https://en.wikipedia.org/wiki/Branching_factor) o
 
 chessprogrammingwiki  
 stockfish  
-wisc edu page
+wisc edu page  
 rust move gen lib  
-chess engine in c amazon redshift
+chess engine in c amazon redshift  
