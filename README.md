@@ -9,9 +9,10 @@ Check out a sample game I played against Snakefish here!
 
 ## Chess engine basics
 
-There are three main components to a chess engine:
+There are four main components to a chess engine:
 
 - Board representation
+- Move generation
 - Evaluation
 - Search
 
@@ -19,7 +20,7 @@ We will give an overview of these components and describe how they're implemente
 
 ### Board representation
 
-The first decision one makes when writing a chess engine is deciding on a board representation.  Because engines need to analyze a huge number of positions, we want to choose a board representation that allows for efficient move generation, fast evaluation, and minimal memory footprint. This turns out to be the hardest part of implementing an engine!
+The first decision one makes when writing a chess engine is deciding on a board representation.  Because engines need to analyze a huge number of positions, we want to choose a board representation that allows for efficient move generation, fast evaluation, and minimal memory footprint. No small task!
 
 Two approaches come to mind for representing a chess board. The most intuitive is the **square-centric** representation, in which we describe the board in terms of the contents of its 64 squares. The natural approach might be to use a 8x8 2D array to represent the squares of the board, where each entry corresponds to the piece on that square. So the starting position would look like:
 
@@ -61,9 +62,13 @@ Our implementation maps squares to bits as described [here](https://github.com/c
 
 #### So what's the point?
 
-Good question! At first bitboards seem like a perplexing choice. Why go through all this trouble just to define the board? Well as alluded to earlier, the big win for bitboards is efficiency. With a bit of cleverness, we can express most of the computations we need to perform in terms of bitwise operations. This effectively "parallelizes" the computations, and drastically cuts down on the number of instructions needed to generate moves - a major bottleneck for a chess engine. Moreover, bitboards are fairly compact in terms of memory usage. While there's no shortage of RAM these days, a low memory footprint still helps fit more data into cache, which is important for performance. 
+Good question! At first bitboards seem like a perplexing choice. Why go through all this trouble just to define the board? Well as alluded to earlier, the big win for bitboards is efficiency. With a bit of cleverness (pardon the pun), we can express most of the computations we need to perform in terms of bitwise operations. This effectively "parallelizes" the computations, and drastically cuts down on the number of instructions needed to generate moves - a major bottleneck for a chess engine. Moreover, bitboards are fairly compact in terms of memory usage. While there's no shortage of RAM these days, a low memory footprint still helps fit more data into cache, which is important for performance. 
 
-Let's look at an example of a computation where the bitboard approach shines. 
+Let's take a look at move generation to see some examples of bitboards in action.
+
+### Move generation
+
+Arguably the hardest part of a chess engine is generating moves quickly and correctly. 
 
 ### Evaluation
 
