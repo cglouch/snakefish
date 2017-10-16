@@ -37,10 +37,26 @@ board = [
 
 where the letters are placeholders for the pieces, which could be represented as classes, enums, ints, or whatever.
 
-The advantage of a square-centric representation is that it feels natural. It's pretty easy to mentally translate between a board and its representation, and it lends itself to writing move generation code in a fairly obvious manner: simply iterate through the squares, and for each non-empty square get the moves that can be made with the piece on that square. However, the downside of a square-centric representation is that it tends to be slow. We don't really want to iterate through all 64 squares every time we calculate a move, especially considering that the majority of the squares will be empty! We could alleviate this somewhat by maintaining a list of the non-empty squares, and in practice most square-centric engines do something like this. However, we still end up spending a lot of time iterating.
 
-The second approach to board representation is **piece-centric**. Instead of describing the contents of the squares, we describe the locations of the pieces. There's a variety of ways to do this, but the most ingenious (and thankfully also the most efficient!) is to use **bitboards**. 
+The second approach to board representation is **piece-centric**. Instead of describing the contents of the squares, we describe the locations of the pieces. There's a variety of ways to do this, but the most ingenious (and thankfully also the most efficient!) is to use **bitboards**. Bitboards take advantage of the convenient fact that chess boards have 64 squares and that modern processors are particularly good at manipulating 64 bit quantities. If we decide on a mapping of bit positions to squares, then we can easily represent the locations of a given piece type as a single 64 bit quantity: a 1 in a bit represents the presence of that piece type in the corresponding square, and a 0 represents its absence. 
 
+
+Note that we can't represent all of the pieces on a single bitboard - a bit can only encode 2 values but we have 12 piece types (13 including empty). Instead what we do is define individual bitboards for each piece type: white king, black king, white pawns, black pawns, etc. For convenience sake, we also maintain some combined bitboards that show up often in computations. Our board class ends up looking like this:
+
+```python
+class ChessBoard(object):
+    def __init__(self):
+        self.pieces = np.zeros((2,6), dtype=np.uint64) # 2 sides, 6 piece bitboards per side
+        self.combined_side = np.zeros(2, dtype=np.uint64) # Combined bitboard for all pieces of given side
+        self.combined_all = np.uint64(0) # Combined bitboard for all pieces on the board
+        self.to_move = Color.WHITE
+```
+
+Here's what the bitboards look like visually at the beginning of a game:
+
+![Beginning](http://chessprogramming.wikispaces.com/file/view/bitboard.gif/158504035/bitboard.gif)
+
+Our implementation maps squares to bits as described [here](https://github.com/cglouch/snakefish/blob/16f1e9f893af3e43d96ed3d20f122527aa327348/src/bitboard.py#L7-L19). So for instance in the image above, the white pawns bitboard would be the 64-bit value `0b0000000000000000000000000000000000000000000000001111111100000000`.
 
 ### Evaluation
 
@@ -59,5 +75,6 @@ Chess has a [branching factor](https://en.wikipedia.org/wiki/Branching_factor) o
 
 chessprogrammingwiki  
 stockfish  
+wisc edu page
 rust move gen lib  
 chess engine in c amazon redshift
