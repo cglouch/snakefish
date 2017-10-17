@@ -70,10 +70,41 @@ Let's take a look at move generation to see some examples of bitboards in action
 
 ### Move generation
 
-Arguably the hardest part of a chess engine is generating moves quickly and correctly. 
+Arguably the hardest part of a chess engine is generating moves quickly and correctly. We'll need to leverage the power of bitboards in order to do so. The first step is of course to describe a move. A move requires 3 fields: a source square, a destination square, and an optional promotion piece (in the event of a pawn reaching the end of the board). If we wanted to, we could use a bitboard with a single bit set to represent a square; however, we'll define a separate square class for reasons that will be revealed later:
+
+```python
+class Square(object):
+    def __init__(self, index):
+        self.index = np.uint8(index)
+```
+
+A square simply stores an index from 0 to 63. Note that given a square, we can trivially convert it to a bitboard via shifting left by the index. Moreover, given a bitboard, we can get the square representing the least significant bit with [some clever bit twiddling](https://github.com/cglouch/snakefish/blob/31764a496b93f64a9a88751144faca9e6f9603f4/src/bitboard.py#L23-L38). This will come in handy.
+
+As for the definition of a piece, we'll use a simple enum. This isn't particularly interesting so we'll omit it here. We now have enough to define a move:
+
+```python
+class Move(object):
+    def __init__(self, src, dest, promo=None):
+        """
+        src is Square representing source square
+        dst is Square representing destination square
+        promo is Piece representing promotion
+        """
+        self.src = src
+        self.dest = dest
+        self.promo = promo
+```
+
+Great! So how do we actually generate these moves? 
+
+todo: describe knight attacks computation in detail, this showcases the power of bitboards. instead of having to perform 8 checks to see if each knight attack square contains a same-colored piece, we can do the whole computation in a single bitwise and operation. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course, in order to enumerate the actual moves we'll still need to perform some iteration, but we've saved ourselves the trouble of 
+
 
 ### Evaluation
 
+describe evaluation
+
+evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positiions, we want quick way of determining various heuristics on the board. bitboards allow us to do so
 
 
 ### Search
