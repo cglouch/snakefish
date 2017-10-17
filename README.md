@@ -1,3 +1,5 @@
+<img align="right" width="45" height="45" src="https://i.imgur.com/d6zOkdQ.png">
+
 # Snakefish
 A chess engine created from scratch in Python
 
