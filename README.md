@@ -41,7 +41,7 @@ board = [
 where the letters are placeholders for the pieces, which could be represented as classes, enums, ints, or whatever.
 
 
-The second approach to board representation - the one we'll use - is **piece-centric**. Instead of describing the contents of the squares, we describe the locations of the pieces. There's a variety of ways to do this, but the most ingenious (and thankfully also the most efficient!) is to use **bitboards**. Bitboards take advantage of the convenient fact that chess boards have 64 squares and that modern processors are particularly good at manipulating 64 bit quantities. If we decide on a mapping of bit positions to squares, then we can easily represent the locations of a given piece type as a single 64 bit quantity: a 1 in a bit represents the presence of that piece type in the corresponding square, and a 0 represents its absence. 
+The second approach to board representation - and the one we'll use - is **piece-centric**. Instead of describing the contents of the squares, we describe the locations of the pieces. There's a variety of ways to do this, but the most ingenious (and thankfully also the most efficient!) is to use **bitboards**. Bitboards take advantage of the convenient fact that chess boards have 64 squares and that modern processors are particularly good at manipulating 64 bit quantities. If we decide on a mapping of bit positions to squares, then we can easily represent the locations of a given piece type as a single 64 bit quantity: a 1 in a bit represents the presence of that piece type in the corresponding square, and a 0 represents its absence. 
 
 
 Note that we can't represent all of the pieces on a single bitboard - a bit can only encode 2 values but we have 12 piece types (13 including empty). Instead what we do is define individual bitboards for each piece type: white king, black king, white pawns, black pawns, etc. For convenience sake, we also maintain some combined bitboards that show up often in computations. Our board class ends up looking like this:
@@ -107,7 +107,7 @@ class Move(object):
         self.promo = promo
 ```
 
-Great! So how do bitboards fit into this? The key insight is that we can use a bitboard to encode the set of moves that a piece can make from a given square.
+Great! So how do bitboards fit into this? The key insight is that we can use a bitboard to encode the places that a piece can move from a given square. I'll call this a *moveset*. A moveset bitboard will have 1's on squares that can be moved to, and 0's everywhere else. 
 
 #### Example - non-sliding piece
 
@@ -154,7 +154,7 @@ wk_moves_bb = nw | n | ne | e | se | s | sw | w
 wk_moves_bb &= ~combined_white
 ```
 
-At this point we notice that with the exception of the last line, this computation is the same any time we calculate the moveset of a king on a given square. Since a chess board has only 64 squares, we might as well just compute the king move bitboard for each square at the beginning of the program and store the results in a table. Then any time we have to compute a king's moveset from a given square, it's as simple as looking up the appropriate bitboard in the pre-computed table and doing a bitwise NOT with the current color's combined pieces. (This is why we chose to define a Square class; it gives us an easy way to index into the table). Here's the code:
+At this point we notice that with the exception of the last line, this computation is the same any time we calculate the moveset of a king on a given square. Since a chess board has only 64 squares, we might as well just compute the king move bitboard for each square at the beginning of the program and store the results in a table. Then any time we want a king's moveset from a given square, it's as simple as looking up the appropriate bitboard in the pre-computed table and doing a bitwise NOT with the current color's combined pieces. (This is why we chose to define a Square class; it gives us an easy way to index into the table). Here's the code:
 
 ```python
 def get_king_moves_bb(src, board):
@@ -164,16 +164,24 @@ def get_king_moves_bb(src, board):
     #TODO maybe make an array of these functions if they have the same signature, then define gen_moves_one_piece
 ```
 
-This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, this can be done in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we will need to iterate through the squares set in the resulting bitboard, but it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
+This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, these checks can be performed simultaneously in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we do need to iterate through the squares set in the resulting bitboard, but it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
 
-king pawn and knight attacks are similar; these are called *non-sliding* pieces. 
+With a couple tweaks, we can use the method described above to calculate the movesets for the pawns and the knights as well. Kings, pawns, and knights are all similar in that they're *non-sliding* pieces. From a computational perspective, these are nice because their movesets can be s
+
+#### Example - sliding pieces
+
+describe rook moves maybe
+
+#### Putting it all together
+
+We now have a way of encoding the moveset bitboard of any given piece on any given square. But we still haven't generated the actual moves. How do we do that? Fittingly enough, we can use Python generators. We'll take it piece by piece. For each piece bitboard, we'll isolate the occupied squares. For each square, we'll compute the bitboard moveset of the piece on that source square. Finally, we'll generate a move from the source square to each destination square in the moveset. 
 
 
 ### Evaluation
 
 describe evaluation
 
-evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positiions, we want quick way of determining various heuristics on the board. bitboards allow us to do so
+evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positions, we want quick way of determining various heuristics on the board. bitboards allow us to do so
 
 consider problem of assessing how many pieces are in center of board - this is a heuristic we're probably interested in. With bitboards, this is easy to compute! Just take the bitwise and of our combined pieces and the bitboard representing the center of the board; then count the number of 1s set. 
 
