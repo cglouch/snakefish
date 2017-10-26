@@ -154,13 +154,13 @@ wk_moves_bb = nw | n | ne | e | se | s | sw | w
 wk_moves_bb &= ~combined_white
 ```
 
-At this point we notice that with the exception of the last line, this computation is the same any time we calculate the moveset of a king on a given square. Since a chess board has only 64 squares, we might as well just compute the king move bitboard for each square at the beginning of the program and store the results in a table. Then any time we want a king's moveset from a given square, it's as simple as looking up the appropriate bitboard in the pre-computed table and doing a bitwise AND with the bitwise NOT of the current color's combined pieces. (This is why we chose to define a Square class; it gives us an easy way to index into the table). Here's the code:
+At this point we notice that with the exception of the last line, this computation is the same any time we calculate the moveset of a king on a given square. Since a chess board has only 64 squares, we might as well just compute the king moveset bitboard for each square at the beginning of the program and store the results in a table. Then any time we want a king's moveset from a given square, it's as simple as looking up the appropriate bitboard in the pre-computed table and doing a bitwise AND with the bitwise NOT of the current color's combined pieces. (This is why we chose to define a Square class; it gives us an easy way to index into the table). Here's the code:
 
 ```python
 def get_king_moves_bb(src, board):
     # src is Square where king is
     # board is the current ChessBoard
-    return tables.KING_MOVES[src.index] & board.combined_color[board.color] #TODO: make this right part a function
+    return tables.KING_MOVES[src.index] & ~board.combined_color[board.color] #TODO: make this right part a function
     #TODO maybe make an array of these functions if they have the same signature, then define gen_moves_one_piece
 ```
 
@@ -172,26 +172,28 @@ With a couple tweaks, we can use the method described above to calculate the mov
 
 Sliding pieces (bishop, rook, and queen) pose a greater challenge. This is because the occupancy of the board affects the movement of the sliding piece, as shown in the image below:
 
-INSERT IMAGE HERE
+![Sliding](http://i.imgur.com/4aTSjVR.png)
 
 Thus we can't simply lookup the movement based on the square alone as we did for non-sliders; we need a way to take the board's occupancy into account as well. The immediate thought that comes to mind is to create a 2D table: one row for each square and one column for each possible occupancy state. Unfortunately a back of the envelope calculation shows this is infeasible: there are 64 squares, 2^64 possible occupancies, and 8 bytes required to store a bitboard, meaning the table size would be 2^73 bytes ≈ 9 * 10^9 TB. This is obviously much too large. We need a way to limit the occupancy space so we can index into a smaller table. 
 
-The first key observation is that if we're trying to, say, calculate the horizontal movements of a rook on E4, then we really only care about the occupancy of the fourth rank. A similar claim holds for vertical, diagonal, and anti-diagonal movements: we only care about the occupancy of the lines that the square is on. This cuts down on the table size considerably: there are only 8 ranks, 8 files, 15 diagonals, and 15 anti-diagonals, each of which has at most 8 squares and 2^8 possible occupancies, for a total of (8+8+15+15) * 8 * 2^8 * 8 bytes ≈ 750 KB. 
+Two key observations:  
+* If we're trying to, say, calculate the horizontal movements of a rook on E4, then we really only care about the occupancy of the fourth rank. A similar claim holds for vertical, diagonal, and anti-diagonal movements: we only care about the occupancy of the lines that the square is on.
 
-The second key observation is that we can use a combination of integer multiplication and bit shifting to map any pattern along a rank, file, diagonal, or anti-diagonal to the same pattern on the first rank. In other words, integer multiplication lets 
+* We can use a combination of integer multiplication and bit shifting to map any pattern along a rank, file, diagonal, or anti-diagonal to the same pattern along the first rank, and vice versa. This process is described [here](http://chessprogramming.wikispaces.com/Flipping+Mirroring+and+Rotating#Rank,%20File%20and%20Diagonal). For instance, here's how we can rotate the A file to the first rank:
+![Rotation](https://i.imgur.com/T9CPHGj.png)
 
-These observations motivated an approach for calculating sliding piece attacks called *Kindergarten bitboards*. 
+These observations motivate an approach for calculating sliding piece moves called *Kindergarten bitboards*. 
 
 #### Putting it all together
 
-We now have a way of encoding the moveset bitboard of any given piece on any given square. But we still haven't generated the actual moves. How do we do that? Fittingly enough, we can use Python generators. We'll take it piece by piece. For each piece bitboard, we'll isolate the occupied squares. For each square, we'll compute the bitboard moveset of the piece on that source square. Finally, we'll generate a move from the source square to each destination square in the moveset. 
+We now have a way of encoding the moveset bitboard of any given piece on any given square. But we still haven't generated the actual moves. How do we do that? Fittingly enough, we can use Python generators. We'll take it piece by piece. For each piece bitboard, we'll isolate the occupied squares. For each square, we'll compute the bitboard moveset of the piece on that source square. Finally, we'll generate a move from the source square to each destination square in the moveset.
 
 
 ### Evaluation
 
 describe evaluation
 
-evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positions, we want quick way of determining various heuristics on the board. bitboards allow us to do so
+evaluation is another area where bitboard approach shines. Since engine needs to assign score to a lot of positions, we want quick way of determining various heuristics on the board. bitboards allow us to express many of these heuristics as simple bitwise operations 
 
 consider problem of assessing how many pieces are in center of board - this is a heuristic we're probably interested in. With bitboards, this is easy to compute! Just take the bitwise and of our combined pieces and the bitboard representing the center of the board; then count the number of 1s set. 
 
