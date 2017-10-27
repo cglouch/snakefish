@@ -119,15 +119,16 @@ wk = 0b0000000000000000000000000000000000000000000000000000001000000000
 
 Visually this corresponds to:
 ```
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
-0 1 0 0 0 0 0 0
-0 0 0 0 0 0 0 0
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. 1 . . . . . .
+. . . . . . . .
 ```
+(For readability, we'll use '.' instead of '0' when representing bitboards.)
 
 A king can move one square in any direction, which we can represent by shifting the bit pattern an appropriate amount. For instance, the square to the left of the king is given by `wk >> 1` (remember that the bit positions increase in significance as we move on the board from left to right, bottom to top; so to get the left of a square we need to shift the bit pattern right). The square above and to the left is `wk << 7`, the square above is `wk << 8`, etc. There's a catch, however, which is that if the king was on say A2, then there is no square to the left it can move to, but our bitshifting approach would mistakenly yield the bitboard for H1. To fix this, we can use a mask to zero out files A and H whenever we're calculating squares that lie to the left or right, respectively. Note that this clipping effect only applies to the files; we don't need to worry about the ranks at the top or bottom because shifting too far up or down will correctly zero out the bit pattern on its own. To summarize:
 
@@ -186,7 +187,7 @@ These observations motivate an approach for calculating sliding piece moves call
 
 Kindergarten bitboards are perhaps best understood through an example, so let's see how they work to calculate the vertical movements of the rook shown in this image:
 
-INSERT IMAGE HERE
+![rook](https://i.imgur.com/o4jrK9O.png?1)
 
 The combined occupancy bitboard is:
 
@@ -214,7 +215,7 @@ Since we're only interested in vertical movement, we'll mask the A file, so the 
 1 . . . . . . .
 ```
 
-We now use Kindergarten multiplication (in this case, multiplication by the main diagonal followed by a right shift of 56) to map this occupancy pattern to the first rank:
+We use Kindergarten multiplication (in this case, multiplication by the main diagonal followed by a right shift of 56) to map this occupancy pattern to the first rank:
 
 ```
 . . . . . . . .      . . . . . . . .
@@ -250,10 +251,7 @@ Voila! The vertical moveset for the rook, as desired. Here's the code for calcul
 
 INSERT CODE HERE
 
-We can use a similar function to calculate diagonal, anti-diagonal, and horizontal movesets.
-
-
-
+The functions for diagonal, anti-diagonal, and horizontal movesets are similar, so we'll omit them from this description.
 
 
 #### Putting it all together
