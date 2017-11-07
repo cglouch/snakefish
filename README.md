@@ -315,13 +315,43 @@ And we're done! Well, not quite - we still haven't dealt with checks. What we ha
 ```python
 def gen_legal_moves(board):
     return itertools.filterfalse(lambda m: leaves_in_check(board, m), gen_moves(board))
-    
+
 def leaves_in_check(board, move):
-    new_board = board.apply_move(move)
-    #TODO
+    """
+    Applies move to board and returns True iff king is left in check
+    Uses symmetry of attack e.g. if white knight attacks black king, then black knight on king sq would attack white knight
+    So it suffices to look at attacks of various pieces from king sq; if these hit opponent piece of same type then it's check
+    """
+    board = board.apply_move(move)
+    board.color = ~board.color
+    my_king_sq = Square(bitboard.lsb_bitscan(board.get_piece_bb(Piece.KING)))
+
+    opp_color = ~board.color
+    opp_pawns = board.get_piece_bb(Piece.PAWN, color=opp_color)
+    if (tables.PAWN_ATTACKS[board.color][my_king_sq.index] & opp_pawns) != tables.EMPTY_BB: 
+        return True
+
+    opp_knights = board.get_piece_bb(Piece.KNIGHT, color=opp_color)
+    if (get_knight_moves_bb(my_king_sq, board) & opp_knights) != tables.EMPTY_BB:
+        return True
+
+    opp_king = board.get_piece_bb(Piece.KING, color=opp_color)
+    if (get_king_moves_bb(my_king_sq, board) & opp_king) != tables.EMPTY_BB:
+        return True
+
+    opp_bishops = board.get_piece_bb(Piece.BISHOP, color=opp_color)
+    opp_queens = board.get_piece_bb(Piece.QUEEN, color=opp_color)
+    if (get_bishop_moves_bb(my_king_sq, board) & (opp_bishops | opp_queens)) != tables.EMPTY_BB:
+        return True
+
+    opp_rooks = board.get_piece_bb(Piece.ROOK, color=opp_color)
+    if (get_rook_moves_bb(my_king_sq, board) & (opp_rooks | opp_queens)) != tables.EMPTY_BB:
+        return True
+
+    return False
 ```
 
-Now we're done for real this time!
+And we're done for real this time!
 
 ### Evaluation
 
@@ -444,7 +474,11 @@ I used [pytest](https://docs.pytest.org/en/latest/) for my testing framework. It
 
 My engine is rather primitive at the moment, and could be optimized in a variety of ways. Some potential improvements:
 
-* Alpha-beta pruning - This technique improves on the search algorithm by pruning moves that are guaranteed not to affect the negamax score. For instance, 
+* Alpha-beta pruning - This technique improves on the search algorithm by pruning moves that are guaranteed not to affect the negamax score. This is actually something chess players do without realizing it. The thinking is approximately: "If I make this move m1, all the continuations lead to a good position for me. What if I make move m2? Ah if I do that, then he has a move m3 that leads to a really bad position for me. So I don't even need to consider his other responses to m2."
+
+* Zobrist hashing - This is a method for implementing transposition tables. In chess, it's often the case that different sequences of moves lead to the same board state ("1. e4 e5 2. Nf3 Nf6" results in the same position as "1. Nf3 Nf6 2. e4 e5", for example). Unfortunately, the negamax algorithm doesn't realize this, since these move sequences lead to different positions in the game tree. Zobrist hashing is a clever way of hashing positions that allows us to memoize negamax results and avoid duplicate computations for transpositions. 
+
+* Quiescence search - One of the problems our engine currently suffers from is called the horizon effect. 
 
 Perhaps in the future I'll implement some of these.
 
