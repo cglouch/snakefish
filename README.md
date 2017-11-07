@@ -1,5 +1,3 @@
-<img align="right" width="45" height="45" src="https://i.imgur.com/d6zOkdQ.png">
-
 # Snakefish
 A chess engine created from scratch in Python
 
@@ -164,7 +162,7 @@ def get_king_moves_bb(src, board):
     return tables.KING_MOVES[src.index] & ~board.combined_color[board.color]
 ```
 
-This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, these checks can be performed simultaneously in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we do need to iterate through the squares set in the resulting bitboard, but it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
+This example showcases the power of bitboards. With a naive square-centric approach, we would need to perform 8 separate checks to see whether the king's potential destination squares were currently occupied by same-colored pieces. However, with bitboards, these checks can be performed simultaneously in a single bitwise AND instruction. We're exploiting the parallel nature of bitwise operations to compute the set intersection that we're interested in. Of course in order to generate the actual moves, we do need to iterate through the squares set in the resulting bitboard. However, it's still preferable to the naive square-centric approach because during this iteration we no longer need to check for intersection - that's already been taken care of by the bitwise AND. The beauty of the bitboard approach is its ability to perform these sorts of calculations so quickly and concisely.
 
 With a couple tweaks, we can use the method described above to calculate the movesets for the pawns and the knights as well. Kings, pawns, and knights are all similar in that they're *non-sliding* pieces. From a computational perspective, these are nice because their movement really only depends on the source square and whether or not the destination square is occupied by a same-colored piece. This means that we can compute their movesets easily with a lookup based on the piece's square followed by a simple bitwise AND.
 
@@ -380,14 +378,42 @@ def eval_moves(board):
 
 ### Search
 
-Search is the final component of a chess engine. Given a board state, we'd like to search the game tree resulting from that state to find the optimal move. To do so, we'll make use of the *minimax* strategy.
+Search is the final component of a chess engine. Given a board state, we'd like to search the game tree resulting from that state to find the optimal move. To do so, we'll use a variant of the *minimax* algorithm called *negamax*. The idea of negamax is that we assume our opponent plays optimally. For a given position, we look at every possible move we could make, and choose the one that minimizes the benefit of the resulting position to our opponent. Meanwhile, the opponent is doing the same thing. Since chess is a 2-player, zero-sum game, the benefit of a position to one player is the negative of the benefit of the position to the opposing player. So really all we're doing is maximizing the value of the resulting position to us.
 
+Ideally we would carry out this process until we reached checkmate. Unfortunately, chess has a [branching factor](https://en.wikipedia.org/wiki/Branching_factor) of ~35, which means that the game tree grows exponentially very quickly. To resolve this issue, we call negamax with a fixed depth - once the depth has been reached, negamax returns the result of the evaluation function on the position, and doesn't recurse any further. Here's the algorithm:
 
-Chess has a [branching factor](https://en.wikipedia.org/wiki/Branching_factor) of ~35 which means that 
+```python
+def negamax(board, depth):
+    if depth == 0:
+        return evaluation.evaluate(board)
+    max_score = np.int32(0x80000000) # minimum 32 bit signed integer
+    for move in movegen.gen_legal_moves(board):
+        new_board = board.apply_move(move)
+        score = -negamax(new_board, depth-1)
+        max_score = max(score, max_score)
+    return max_score
+```
+
+Negamax gives us the value of the position to the current player. So in order to get the best move, we proceed as follows:
+
+```python
+def best_move(board, depth):
+    max_score = np.int32(0x80000000) # minimum 32 bit signed integer
+    for move in movegen.gen_legal_moves(board):
+        new_board = board.apply_move(move)
+        score = -negamax(new_board, depth-1)
+        if score > max_score:
+            max_score = score
+            best_move = move
+    return best_move
+```
+
+And that's it! We finally have enough to assemble a working chess engine. 
+
 
 ## Tests
 
-Thoroughly testing a chess engine is a challenge in and of itself. One strategy that's often used is called [perft](https://chessprogramming.wikispaces.com/Perft). This is a debugging function that walks the game tree up to some specified depth, and counts the number of leaf nodes (i.e. the number of possible board states at the given depth). We can run perft from a variety of starting positions, and compare our results to known values:
+Thoroughly testing a chess program is a challenge in and of itself. One strategy that's often used is called [perft](https://chessprogramming.wikispaces.com/Perft). This is a debugging function that walks the game tree up to some specified depth, and counts the number of leaf nodes (i.e. the number of possible board states at the given depth). We can run perft from a variety of starting positions, and compare our results to known values:
 
 ```python
 def perft(board, depth):
@@ -412,6 +438,15 @@ If our values match the known values, it's a strong signal that our move generat
 
 
 I used [pytest](https://docs.pytest.org/en/latest/) for my testing framework. It's a pretty nice python testing tool that eliminates a lot of the boilerplate associated with unittest or other strategies. I have some tests in basic.py just for verifying the basic functionality of my bitboard code, and a couple tests in perft.py for the move generation code. (Unfortunately most perft tests will fail until I implement castling / en-passant).
+
+
+## Further improvements
+
+My engine is rather primitive at the moment, and could be optimized in a variety of ways. Some potential improvements:
+
+* Alpha-beta pruning - This technique improves on the search algorithm by pruning moves that are guaranteed not to affect the negamax score. For instance, 
+
+Perhaps in the future I'll implement some of these.
 
 ## Resources
 
