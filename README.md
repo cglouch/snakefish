@@ -6,6 +6,7 @@ Snakefish uses a bitboard approach to represent the state of the chess board and
 
 Check out a sample game I played against Snakefish here! (todo: put animated gif here (search /r/chess for tool))
 
+![game](http://i.imgur.com/LSCiNqT.gif)
 
 ## Chess engine basics
 
