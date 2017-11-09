@@ -4,9 +4,9 @@ A chess engine created from scratch in Python
 ## Overview
 Snakefish uses a bitboard approach to represent the state of the chess board and to generate possible moves. Search is performed using the negamax algorithm with a simple heuristic. The name is a play on "Stockfish", a well known chess engine (and "snake", cause, you know, Python).
 
-Check out a sample game I played against Snakefish here! (todo: put animated gif here (search /r/chess for tool))
+Check out a sample game I (white) played against Snakefish (black):
 
-![game](http://i.imgur.com/LSCiNqT.gif)
+![](https://i.imgur.com/XeYJPfg.gif)
 
 ## Chess engine basics
 
