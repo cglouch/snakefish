@@ -6,7 +6,9 @@ Snakefish uses a bitboard approach to represent the state of the chess board and
 
 Check out a sample game I (white) played against Snakefish (black):
 
-![](https://i.imgur.com/XeYJPfg.gif)
+<p align="center">
+  <img src="https://i.imgur.com/L9evkOR.gif">
+</p>
 
 ## Chess engine basics
 
